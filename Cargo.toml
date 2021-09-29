@@ -1,0 +1,15 @@
+[package]
+name = "mcp25xx"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+embedded-hal = { version = "0.2.6", features = ["unproven"] }
+modular-bitfield = { git = "https://github.com/dimpolo/modular-bitfield.git" , branch="unnecessary_cast"}
+
+[features]
+mcp2515 = []
+mcp25625 = []
+
+[dev-dependencies]
+embedded-hal-mock = "0.8.0"
