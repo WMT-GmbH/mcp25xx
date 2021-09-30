@@ -78,12 +78,17 @@ impl Modify for BFPCTRL {}
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
+/// Can Control Register
 pub struct CANCTRL {
+    /// CLKOUT Pin Prescaler
     pub clkpre: CLKPRE,
+    ///  CLKOUT Pin Enable
     pub clken: bool,
     #[skip]
     __: B1,
+    /// Abort All Pending Transmissions
     pub abat: bool,
+    /// Request Operation Mode
     pub reqop: REQOP,
 }
 
@@ -91,16 +96,23 @@ pub struct CANCTRL {
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
+/// Can Control Register
 pub struct CANCTRL {
+    /// CLKOUT Pin Prescaler
     pub clkpre: CLKPRE,
+    ///  CLKOUT Pin Enable
     pub clken: bool,
+    /// One-Shot Mode
     pub osm: bool,
+    /// Abort All Pending Transmissions
     pub abat: bool,
+    /// Request Operation Mode
     pub reqop: REQOP,
 }
 
 #[derive(BitfieldSpecifier, Debug)]
 #[bits = 3]
+/// Request Operation mode
 pub enum REQOP {
     NormalOperation = 0b000,
     Sleep = 0b001,
@@ -114,6 +126,7 @@ pub enum REQOP {
 
 #[derive(BitfieldSpecifier, Debug)]
 #[bits = 2]
+/// CLKOUT Pin Prescaler
 pub enum CLKPRE {
     SystemClockDiv1 = 0b000,
     SystemClockDiv2 = 0b001,
@@ -142,9 +155,13 @@ impl Default for CANCTRL {
 
 #[bitfield]
 #[derive(Copy, Clone, Debug, Default)]
+/// Configuration Register
 pub struct CNF {
+    /// Configuration 3 Register
     pub cnf3: CNF3,
+    /// Configuration 2 Register
     pub cnf2: CNF2,
+    /// Configuration 1 Register
     pub cnf1: CNF1,
 }
 
@@ -153,9 +170,13 @@ impl Register for CNF {
 }
 
 #[bitfield]
+#[repr(u8)]
 #[derive(BitfieldSpecifier, Copy, Clone, Debug, Default)]
+/// Configuration 1 Register
 pub struct CNF1 {
+    /// Baud Rate Prescaler
     pub brp: B6,
+    /// Synchronization Jump Width Length
     pub sjw: B2,
 }
 
@@ -165,11 +186,17 @@ impl Register for CNF1 {
 impl Modify for CNF1 {}
 
 #[bitfield]
+#[repr(u8)]
 #[derive(BitfieldSpecifier, Copy, Clone, Debug, Default)]
+/// Configuration 2 Register
 pub struct CNF2 {
+    /// Propagation Segment Length
     pub prseg: B3,
+    /// PS1 Length
     pub phseg1: B3,
+    /// Sample Point Configuration
     pub sam: bool,
+    /// PS2 Bit Time Length
     pub btlmode: bool,
 }
 
@@ -180,22 +207,31 @@ impl Modify for CNF2 {}
 
 #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
 #[bitfield]
+#[repr(u8)]
 #[derive(BitfieldSpecifier, Copy, Clone, Debug, Default)]
+/// Configuration 3 Register
 pub struct CNF3 {
+    /// PS2 Length
     pub phseg2: B3,
     #[skip]
     __: B3,
+    /// Wake-up Filter
     pub wakfil: bool,
-    sof: bool,
+    /// Start-of-Frame Signal
+    pub sof: bool,
 }
 
 #[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
 #[bitfield]
+#[repr(u8)]
 #[derive(BitfieldSpecifier, Copy, Clone, Debug, Default)]
+/// Configuration 3 Register
 pub struct CNF3 {
+    /// PS2 Length
     pub phseg2: B3,
     #[skip]
     __: B3,
+    /// Wake-up Filter
     pub wakfil: bool,
     #[skip]
     __: B1,
@@ -205,3 +241,113 @@ impl Register for CNF3 {
     const ADDRESS: u8 = 0x28;
 }
 impl Modify for CNF3 {}
+
+#[bitfield]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, Default)]
+/// Data Length Code Register
+pub struct DLC {
+    /// Data Length Code
+    pub dlc: B4,
+    #[skip]
+    __: B2,
+    /// Remote Transmission Request
+    pub rtr: bool,
+    #[skip]
+    __: B1,
+}
+
+#[bitfield]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, Default)]
+/// Transmit Buffer N Control Register
+pub struct TXB0CTRL {
+    /// Transmit Buffer Priority
+    pub txp: B2,
+    #[skip]
+    __: B1,
+    /// Message Transmit Request
+    pub txreq: bool,
+    /// Transmission Error Detected
+    pub txerr: bool,
+    /// : Message Lost Arbitration
+    pub mloa: bool,
+    /// Message Aborted Flag
+    pub abtf: bool,
+    #[skip]
+    __: B1,
+}
+
+impl Register for TXB0CTRL {
+    const ADDRESS: u8 = 0x30;
+}
+
+impl Modify for TXB0CTRL {}
+#[bitfield]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, Default)]
+/// Transmit Buffer N Control Register
+pub struct TXB1CTRL {
+    /// Transmit Buffer Priority
+    pub txp: B2,
+    #[skip]
+    __: B1,
+    /// Message Transmit Request
+    pub txreq: bool,
+    /// Transmission Error Detected
+    pub txerr: bool,
+    /// : Message Lost Arbitration
+    pub mloa: bool,
+    /// Message Aborted Flag
+    pub abtf: bool,
+    #[skip]
+    __: B1,
+}
+
+impl Register for TXB1CTRL {
+    const ADDRESS: u8 = 0x40;
+}
+
+impl Modify for TXB1CTRL {}
+
+#[bitfield]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, Default)]
+/// Transmit Buffer N Control Register
+pub struct TXB2CTRL {
+    /// Transmit Buffer Priority
+    pub txp: B2,
+    #[skip]
+    __: B1,
+    /// Message Transmit Request
+    pub txreq: bool,
+    /// Transmission Error Detected
+    pub txerr: bool,
+    /// : Message Lost Arbitration
+    pub mloa: bool,
+    /// Message Aborted Flag
+    pub abtf: bool,
+    #[skip]
+    __: B1,
+}
+
+impl Register for TXB2CTRL {
+    const ADDRESS: u8 = 0x50;
+}
+
+impl Modify for TXB2CTRL {}
+
+#[bitfield]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, Default)]
+/// Read Status Response Bitfield
+pub struct ReadStatusResponse {
+    pub tx2if: bool,
+    pub txreq2: bool,
+    pub tx1if: bool,
+    pub txreq1: bool,
+    pub tx0if: bool,
+    pub txreq0: bool,
+    pub rx1if: bool,
+    pub rx0if: bool,
+}

@@ -1,14 +1,17 @@
 #![no_std]
 
-pub mod bitrates;
-pub mod registers;
-
 use core::convert::Infallible;
 use core::fmt::Debug;
 
-use crate::registers::{Modify, Register, CANCTRL, CNF, REQOP};
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::OutputPin;
+
+use crate::registers::*;
+use embedded_can::Frame;
+
+pub mod bitrates;
+pub mod frame;
+pub mod registers;
 
 #[repr(u8)]
 pub enum Instruction {
@@ -45,6 +48,44 @@ where
     }
     pub fn set_bitrate(&mut self, cnf: CNF) -> Result<(), <SPI as Transfer<u8>>::Error> {
         self.write_registers(CNF::ADDRESS, &cnf.into_bytes())
+    }
+}
+
+impl<SPI, CS> embedded_can::Can for MCP25xx<SPI, CS>
+where
+    SPI: Transfer<u8>,
+    SPI: Write<u8, Error = <SPI as Transfer<u8>>::Error>,
+    <SPI as Transfer<u8>>::Error: Debug,
+    CS: OutputPin<Error = Infallible>,
+{
+    type Frame = crate::frame::Frame;
+    type Error = <SPI as Transfer<u8>>::Error;
+
+    fn try_transmit(
+        &mut self,
+        frame: &Self::Frame,
+    ) -> nb::Result<Option<Self::Frame>, Self::Error> {
+        let status = self.read_status()?;
+        let mut buf_idx = 0u8;
+        if status.txreq0() {
+            buf_idx = 1;
+            if status.txreq1() {
+                buf_idx = 2;
+                if status.txreq2() {
+                    // TODO replace a pending lower priority frame
+                    return Err(nb::Error::WouldBlock);
+                }
+            }
+        }
+
+        let registers = &frame.as_bytes()[0..5 + frame.dlc()];
+        self.load_tx(buf_idx, registers)?;
+        self.request_to_send(buf_idx)?;
+        Ok(None)
+    }
+
+    fn try_receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
+        todo!()
     }
 }
 
@@ -89,13 +130,6 @@ where
         Ok(())
     }
 
-    pub fn reset(&mut self) -> Result<(), <SPI as Transfer<u8>>::Error> {
-        self.cs.set_low().ok();
-        self.spi.write(&[Instruction::Reset as u8])?;
-        self.cs.set_high().ok();
-        Ok(())
-    }
-
     pub fn read_registers(
         &mut self,
         start_address: u8,
@@ -118,5 +152,45 @@ where
         self.spi.write(data)?;
         self.cs.set_high().ok();
         Ok(())
+    }
+
+    pub fn request_to_send(&mut self, buf_idx: u8) -> Result<(), <SPI as Transfer<u8>>::Error> {
+        self.cs.set_low().ok();
+        self.spi.write(&[Instruction::Rts as u8 | (1 << buf_idx)])?;
+        self.cs.set_high().ok();
+        Ok(())
+    }
+
+    pub fn read_status(&mut self) -> Result<ReadStatusResponse, <SPI as Transfer<u8>>::Error> {
+        self.cs.set_low().ok();
+        self.spi.write(&[Instruction::ReadStatus as u8])?;
+        let mut buf = [0];
+        self.spi.transfer(&mut buf)?;
+        self.cs.set_high().ok();
+        Ok(ReadStatusResponse::from_bytes(buf))
+    }
+
+    #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+    pub fn load_tx(
+        &mut self,
+        buf_idx: u8,
+        data: &[u8],
+    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
+        self.cs.set_low().ok();
+        self.spi
+            .write(&[Instruction::LoadTxBuffer as u8 | (buf_idx * 2)])?;
+        self.spi.write(data)?;
+        self.cs.set_high().ok();
+        Ok(())
+    }
+
+    #[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
+    #[inline]
+    pub fn load_tx(
+        &mut self,
+        buf_idx: u8,
+        data: &[u8],
+    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
+        self.write_registers(0x31 + 0x10 * buf_idx, data)
     }
 }

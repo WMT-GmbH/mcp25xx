@@ -20,17 +20,17 @@ impl OutputPin for MockCS {
 
     fn set_low(&mut self) -> Result<(), Self::Error> {
         if self.0 % 2 == 1 {
-            panic!("already low")
+            panic!("CS already low")
         }
-        self.0 -= 1;
+        self.0 = self.0.checked_sub(1).expect("too many CS flanks");
         Ok(())
     }
 
     fn set_high(&mut self) -> Result<(), Self::Error> {
         if self.0 % 2 == 0 {
-            panic!("already high")
+            panic!("CS already high")
         }
-        self.0 -= 1;
+        self.0 = self.0.checked_sub(1).expect("too many CS flanks");
         Ok(())
     }
 }
@@ -42,7 +42,7 @@ impl MockCS {
 
     pub fn done(&self) {
         if self.0 != 0 {
-            panic!("not enough flanks")
+            panic!("not enough CS flanks")
         }
     }
 }

@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 embedded-hal = { version = "0.2.6", features = ["unproven"] }
+embedded-can = "0.3.0"
+nb = "1.0.0"
 modular-bitfield = { git = "https://github.com/dimpolo/modular-bitfield.git" , branch="unnecessary_cast"}
 
 [features]
