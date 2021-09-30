@@ -4,7 +4,7 @@ use embedded_can::Id;
 
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
-struct IdHeader {
+pub(crate) struct IdHeader {
     sidh: u8,
     sidl: u8,
     eid8: u8,
@@ -61,12 +61,12 @@ impl Debug for IdHeader {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 #[repr(C)]
 pub struct Frame {
-    id_header: IdHeader,
-    dlc: DLC,
-    data: [u8; 8],
+    pub(crate) id_header: IdHeader,
+    pub(crate) dlc: DLC,
+    pub(crate) data: [u8; 8],
 }
 
 impl Frame {
@@ -74,6 +74,17 @@ impl Frame {
         // SAFETY:
         // Frame is [repr(C)] without any padding bytes
         unsafe { &*(self as *const Frame as *const [u8; core::mem::size_of::<Frame>()]) }
+    }
+
+    pub fn from_bytes(bytes: [u8; 13]) -> Frame {
+        // SAFETY:
+        // Frame is [repr(C)] without any padding bytes
+        // Also, there are no invariants that the bytes that compose Frame must uphold
+        let mut frame: Frame = unsafe { core::mem::transmute(bytes) };
+        if frame.dlc.dlc() > 8 {
+            frame.dlc.set_dlc(8);
+        }
+        frame
     }
 }
 
@@ -126,6 +137,6 @@ impl embedded_can::Frame for Frame {
 
     #[inline]
     fn data(&self) -> &[u8] {
-        &self.data
+        &self.data[0..self.dlc()]
     }
 }

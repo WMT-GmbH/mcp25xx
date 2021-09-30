@@ -30,6 +30,21 @@ pub enum Instruction {
     LoadTxBuffer = 0b0100_0000,
 }
 
+#[derive(Copy, Clone)]
+#[repr(u8)]
+pub enum TxBufferIndex {
+    Idx0 = 0,
+    Idx1 = 1,
+    Idx2 = 2,
+}
+
+#[derive(Copy, Clone)]
+#[repr(u8)]
+pub enum RxBufferIndex {
+    Idx0 = 0,
+    Idx1 = 1,
+}
+
 pub struct MCP25xx<SPI, CS> {
     pub spi: SPI,
     pub cs: CS,
@@ -66,11 +81,11 @@ where
         frame: &Self::Frame,
     ) -> nb::Result<Option<Self::Frame>, Self::Error> {
         let status = self.read_status()?;
-        let mut buf_idx = 0u8;
+        let mut buf_idx = TxBufferIndex::Idx0;
         if status.txreq0() {
-            buf_idx = 1;
+            buf_idx = TxBufferIndex::Idx1;
             if status.txreq1() {
-                buf_idx = 2;
+                buf_idx = TxBufferIndex::Idx2;
                 if status.txreq2() {
                     // TODO replace a pending lower priority frame
                     return Err(nb::Error::WouldBlock);
@@ -79,13 +94,20 @@ where
         }
 
         let registers = &frame.as_bytes()[0..5 + frame.dlc()];
-        self.load_tx(buf_idx, registers)?;
+        self.load_tx_buffer(buf_idx, registers)?;
         self.request_to_send(buf_idx)?;
         Ok(None)
     }
 
     fn try_receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
-        todo!()
+        let status = self.read_status()?;
+        if status.rx0if() {
+            Ok(self.read_rx_buffer(RxBufferIndex::Idx0)?)
+        } else if status.rx1if() {
+            Ok(self.read_rx_buffer(RxBufferIndex::Idx1)?)
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
     }
 }
 
@@ -154,9 +176,13 @@ where
         Ok(())
     }
 
-    pub fn request_to_send(&mut self, buf_idx: u8) -> Result<(), <SPI as Transfer<u8>>::Error> {
+    pub fn request_to_send(
+        &mut self,
+        buf_idx: TxBufferIndex,
+    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
         self.cs.set_low().ok();
-        self.spi.write(&[Instruction::Rts as u8 | (1 << buf_idx)])?;
+        self.spi
+            .write(&[Instruction::Rts as u8 | (1 << buf_idx as u8)])?;
         self.cs.set_high().ok();
         Ok(())
     }
@@ -171,14 +197,14 @@ where
     }
 
     #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
-    pub fn load_tx(
+    pub fn load_tx_buffer(
         &mut self,
-        buf_idx: u8,
+        buf_idx: TxBufferIndex,
         data: &[u8],
     ) -> Result<(), <SPI as Transfer<u8>>::Error> {
         self.cs.set_low().ok();
         self.spi
-            .write(&[Instruction::LoadTxBuffer as u8 | (buf_idx * 2)])?;
+            .write(&[Instruction::LoadTxBuffer as u8 | (buf_idx as u8 * 2)])?;
         self.spi.write(data)?;
         self.cs.set_high().ok();
         Ok(())
@@ -186,11 +212,62 @@ where
 
     #[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
     #[inline]
-    pub fn load_tx(
+    pub fn load_tx_buffer(
         &mut self,
-        buf_idx: u8,
+        buf_idx: TxBufferIndex,
         data: &[u8],
     ) -> Result<(), <SPI as Transfer<u8>>::Error> {
-        self.write_registers(0x31 + 0x10 * buf_idx, data)
+        self.write_registers(0x31 + 0x10 * buf_idx as u8, data)
+    }
+
+    pub fn read_rx_buffer(
+        &mut self,
+        buf_idx: RxBufferIndex,
+    ) -> Result<crate::frame::Frame, <SPI as Transfer<u8>>::Error> {
+        // gets a view into the first 5 bytes of Frame
+        fn id_bytes(frame: &mut crate::frame::Frame) -> &mut [u8; 5] {
+            // SAFETY:
+            // Frame is [repr(C)] without any padding bytes
+            // All bit patterns are valid
+            unsafe { &mut *(frame as *mut crate::frame::Frame as *mut [u8; 5]) }
+        }
+
+        let mut frame = crate::frame::Frame::default();
+
+        self.cs.set_low().ok();
+
+        self.send_read_rx_instruction(buf_idx)?;
+        self.spi.transfer(id_bytes(&mut frame))?;
+        let mut dlc = frame.dlc();
+        if dlc > 8 {
+            dlc = 8;
+            frame.dlc.set_dlc(8);
+        }
+        self.spi.transfer(&mut frame.data[0..dlc])?;
+
+        self.cs.set_high().ok();
+
+        #[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
+        // need to manually reset the interrupt flag bit if Instruction::ReadRxBuffer is not available
+        self.modify_register(CANINTF::new(), buf_idx as u8)?;
+        Ok(frame)
+    }
+
+    #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+    fn send_read_rx_instruction(
+        &mut self,
+        buf_idx: RxBufferIndex,
+    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
+        self.spi
+            .write(&[Instruction::ReadRxBuffer as u8 | (buf_idx as u8 * 2)])
+    }
+
+    #[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
+    fn send_read_rx_instruction(
+        &mut self,
+        buf_idx: RxBufferIndex,
+    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
+        self.spi
+            .write(&[Instruction::Read as u8, 0x61 + 0x10 * buf_idx as u8])
     }
 }

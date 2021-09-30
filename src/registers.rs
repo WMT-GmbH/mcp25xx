@@ -351,3 +351,23 @@ pub struct ReadStatusResponse {
     pub rx1if: bool,
     pub rx0if: bool,
 }
+
+#[bitfield]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, Default)]
+pub struct CANINTF {
+    pub rx0if: bool,
+    pub rx1if: bool,
+    pub tx0if: bool,
+    pub tx1if: bool,
+    pub tx2if: bool,
+    pub errif: bool,
+    pub wakif: bool,
+    pub merrf: bool,
+}
+
+impl Register for CANINTF {
+    const ADDRESS: u8 = 0x2C;
+}
+
+impl Modify for CANINTF {}
