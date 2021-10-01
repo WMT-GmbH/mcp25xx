@@ -15,23 +15,44 @@ pub mod registers;
 
 #[repr(u8)]
 pub enum Instruction {
+    /// Resets internal registers to the default state, sets Configuration mode.
     Reset = 0b1100_0000,
+    /// Reads data from the register beginning at the selected address.
     Read = 0b0000_0011,
+    /// Writes data to the register beginning at the selected address.
     Write = 0b0000_0010,
-    Rts = 0b1000_0000, // | 0b 0000 0 tx2 tx1 tx0
+    /// Instructs the controller to begin the message transmission sequence for
+    /// any of the transmit buffers specified in `0b1000_0nnn`.
+    Rts = 0b1000_0000,
+    /// Quick polling command that reads several Status bits for transmit and receive functions.
     ReadStatus = 0b1010_0000,
+    /// Allows the user to set or clear individual bits in a particular register.
+    ///
+    /// Note: Not all registers can be bit modified with this command.
+    /// Executing this command on registers that are not bit modifiable will force the mask to FFh.
+    ///
+    /// Registers that can be modified with this command implement [`Modify`].
     BitModify = 0b0000_0101,
 
     #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+    /// Quick polling command that indicates a filter match and message type
+    /// (standard, extended and/or remote) of the received message.
     RxStatus = 0b1011_0000,
     #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+    /// When reading a receive buffer, reduces the overhead of a normal `Read`
+    /// command by placing the Address Pointer at one of four locations, as
+    /// indicated by ‘nm’ in `0b1001_0nm0`.
+    ///
+    /// Note: The associated RX flag bit (`rxNif` bits in the [`CANINTF`] register) will be cleared after bringing CS high.
     ReadRxBuffer = 0b1001_0000,
     #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+    /// When loading a transmit buffer, reduces the overhead of a normal `Write`
+    /// command by placing the Address Pointer at one of six locations, as
+    /// indicated by ‘abc’ in `0b0100_0abc`.
     LoadTxBuffer = 0b0100_0000,
 }
 
 #[derive(Copy, Clone)]
-#[repr(u8)]
 pub enum TxBufferIndex {
     Idx0 = 0,
     Idx1 = 1,
@@ -39,13 +60,18 @@ pub enum TxBufferIndex {
 }
 
 #[derive(Copy, Clone)]
-#[repr(u8)]
 pub enum RxBufferIndex {
     Idx0 = 0,
     Idx1 = 1,
 }
 
-pub struct MCP25xx<SPI, CS> {
+pub struct MCP25xx<SPI, CS>
+where
+    SPI: Transfer<u8>,
+    SPI: Write<u8, Error = <SPI as Transfer<u8>>::Error>,
+    <SPI as Transfer<u8>>::Error: Debug,
+    CS: OutputPin<Error = Infallible>,
+{
     pub spi: SPI,
     pub cs: CS,
 }
@@ -100,6 +126,7 @@ where
     }
 
     fn try_receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
+        // TODO look at https://www.microchip.com/forums/tm.aspx?m=620741
         let status = self.read_status()?;
         if status.rx0if() {
             Ok(self.read_rx_buffer(RxBufferIndex::Idx0)?)

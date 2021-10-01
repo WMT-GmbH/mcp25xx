@@ -9,16 +9,23 @@ pub trait Modify {}
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
+/// Receive Buffer 0 Control Register
 pub struct RXB0CTRL {
     #[skip(setters)]
-    pub filhit0: bool,
+    /// Filter Hit bit (indicates which acceptance filter enabled reception of message)
+    /// Note: If a rollover from RXB0 to RXB1 occurs, the `filhit0` bit will reflect the filter that accepted the message that rolled over
+    pub filhit: B1,
     #[skip(setters)]
+    /// Read-Only Copy of BUKT bit (used internally)
     pub bukt1: bool,
+    /// Rollover Enable
     pub bukt: bool,
     #[skip(setters)]
+    /// Received Remote Transfer Request
     pub rxrtr: bool,
     #[skip]
     __: B1,
+    /// TODO enum Receive Buffer Operating Mode
     pub rxm0: bool,
     pub rxm1: bool,
     #[skip]
@@ -34,17 +41,17 @@ impl Modify for RXB0CTRL {}
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
+/// Receive Buffer 1 Control Register
 pub struct RXB1CTRL {
     #[skip(setters)]
-    pub filhit0: bool,
+    /// Filter Hit bits (indicates which acceptance filter enabled reception of message)
+    pub filhit: B3,
     #[skip(setters)]
-    pub filhit1: bool,
-    #[skip(setters)]
-    pub filhit2: bool,
-    #[skip(setters)]
+    /// Received Remote Transfer Request bit
     pub rxrtr: bool,
     #[skip]
     __: B1,
+    /// TODO enum Receive Buffer Operating Mode
     pub rxm0: bool,
     pub rxm1: bool,
     #[skip]
@@ -153,9 +160,8 @@ impl Default for CANCTRL {
     }
 }
 
-#[bitfield]
 #[derive(Copy, Clone, Debug, Default)]
-/// Configuration Register
+/// Configuration Registers
 pub struct CNF {
     /// Configuration 3 Register
     pub cnf3: CNF3,
@@ -169,9 +175,26 @@ impl Register for CNF {
     const ADDRESS: u8 = CNF3::ADDRESS;
 }
 
+impl CNF {
+    pub const fn from_bytes(bytes: [u8; 3]) -> Self {
+        CNF {
+            cnf3: CNF3::from_bytes([bytes[0]]),
+            cnf2: CNF2::from_bytes([bytes[1]]),
+            cnf1: CNF1::from_bytes([bytes[2]]),
+        }
+    }
+    pub const fn into_bytes(self) -> [u8; 3] {
+        [
+            self.cnf3.into_bytes()[0],
+            self.cnf2.into_bytes()[0],
+            self.cnf1.into_bytes()[0],
+        ]
+    }
+}
+
 #[bitfield]
 #[repr(u8)]
-#[derive(BitfieldSpecifier, Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 /// Configuration 1 Register
 pub struct CNF1 {
     /// Baud Rate Prescaler
@@ -187,7 +210,7 @@ impl Modify for CNF1 {}
 
 #[bitfield]
 #[repr(u8)]
-#[derive(BitfieldSpecifier, Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 /// Configuration 2 Register
 pub struct CNF2 {
     /// Propagation Segment Length
@@ -208,10 +231,11 @@ impl Modify for CNF2 {}
 #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
 #[bitfield]
 #[repr(u8)]
-#[derive(BitfieldSpecifier, Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 /// Configuration 3 Register
 pub struct CNF3 {
     /// PS2 Length
+    /// Note: Minimum valid setting is 1
     pub phseg2: B3,
     #[skip]
     __: B3,
@@ -260,7 +284,7 @@ pub struct DLC {
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
-/// Transmit Buffer N Control Register
+/// Transmit Buffer 0 Control Register
 pub struct TXB0CTRL {
     /// Transmit Buffer Priority
     pub txp: B2,
@@ -286,7 +310,7 @@ impl Modify for TXB0CTRL {}
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
-/// Transmit Buffer N Control Register
+/// Transmit Buffer 1 Control Register
 pub struct TXB1CTRL {
     /// Transmit Buffer Priority
     pub txp: B2,
@@ -313,7 +337,7 @@ impl Modify for TXB1CTRL {}
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
-/// Transmit Buffer N Control Register
+/// Transmit Buffer 2 Control Register
 pub struct TXB2CTRL {
     /// Transmit Buffer Priority
     pub txp: B2,
@@ -355,14 +379,23 @@ pub struct ReadStatusResponse {
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
+/// CAN Interrupt Flag Register
 pub struct CANINTF {
+    /// Receive Buffer 0 Full Interrupt Flag
     pub rx0if: bool,
+    /// Receive Buffer 1 Full Interrupt Flag
     pub rx1if: bool,
+    /// Transmit Buffer 0 Empty Interrupt Flag
     pub tx0if: bool,
+    /// Transmit Buffer 1 Empty Interrupt Flag
     pub tx1if: bool,
+    /// Transmit Buffer 2 Empty Interrupt Flag
     pub tx2if: bool,
+    /// Error Interrupt Flag (multiple sources in the [`EFLG`] register)
     pub errif: bool,
+    /// Wake-up Interrupt Flag
     pub wakif: bool,
+    /// Message Error Interrupt Flag
     pub merrf: bool,
 }
 
@@ -371,3 +404,32 @@ impl Register for CANINTF {
 }
 
 impl Modify for CANINTF {}
+
+#[bitfield]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, Default)]
+/// Error Flag Register
+pub struct EFLG {
+    /// Error Warning Flag bit
+    pub ewarn: bool,
+    /// Receive Error Warning Flag bit
+    pub rxwar: bool,
+    /// Transmit Error Warning Flag bit
+    pub txwar: bool,
+    /// Receive Error-Passive Flag bit
+    pub rxep: bool,
+    /// Transmit Error-Passive Flag bit
+    pub txep: bool,
+    /// Bus-Off Error Flag bit
+    pub txbo: bool,
+    /// Receive Buffer 0 Overflow Flag bit
+    pub rx0ovr: bool,
+    /// Receive Buffer 1 Overflow Flag bit
+    pub rx1ovr: bool,
+}
+
+impl Register for EFLG {
+    const ADDRESS: u8 = 0x2D;
+}
+
+impl Modify for EFLG {}
