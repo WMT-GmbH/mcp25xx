@@ -86,24 +86,23 @@ pub enum RXM {
     ReceiveAny = 0b11,
 }
 
+#[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
 #[bitfield]
 #[repr(u8)]
-#[derive(Copy, Clone, Debug, Default)]
-pub struct BFPCTRL {
-    pub b0bfm: bool,
-    pub b1bfm: bool,
-    pub b0bfe: bool,
-    pub b1bfe: bool,
-    pub b0bfs: bool,
-    pub b1bfs: bool,
-    #[skip]
-    __: B2,
+#[derive(Copy, Clone, Debug)]
+/// Can Control Register
+pub struct CANCTRL {
+    /// CLKOUT Pin Prescaler
+    pub clkpre: CLKPRE,
+    ///  CLKOUT Pin Enable
+    pub clken: bool,
+    /// One-Shot Mode
+    pub osm: bool,
+    /// Abort All Pending Transmissions
+    pub abat: bool,
+    /// Request Operation Mode
+    pub reqop: REQOP,
 }
-
-impl Register for BFPCTRL {
-    const ADDRESS: u8 = 0x0C;
-}
-impl Modify for BFPCTRL {}
 
 #[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
 #[bitfield]
@@ -117,24 +116,6 @@ pub struct CANCTRL {
     pub clken: bool,
     #[skip]
     __: B1,
-    /// Abort All Pending Transmissions
-    pub abat: bool,
-    /// Request Operation Mode
-    pub reqop: REQOP,
-}
-
-#[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
-#[bitfield]
-#[repr(u8)]
-#[derive(Copy, Clone, Debug)]
-/// Can Control Register
-pub struct CANCTRL {
-    /// CLKOUT Pin Prescaler
-    pub clkpre: CLKPRE,
-    ///  CLKOUT Pin Enable
-    pub clken: bool,
-    /// One-Shot Mode
-    pub osm: bool,
     /// Abort All Pending Transmissions
     pub abat: bool,
     /// Request Operation Mode
@@ -170,14 +151,15 @@ impl Register for CANCTRL {
 }
 impl Modify for CANCTRL {}
 
-#[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
-impl Default for CANCTRL {
-    fn default() -> Self {
-        0b1110_0111.into()
-    }
-}
-
-#[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+/// ```ignore
+/// CANCTRL {
+///     clkpre: CLKPRE::SystemClockDiv8,
+///     clken: true,
+///     osm: false, // field not present on MCP2510
+///     abat: false,
+///     reqop: REQOP::Configuration,
+/// }
+/// ```
 impl Default for CANCTRL {
     fn default() -> Self {
         0b1000_0111.into()
@@ -403,7 +385,36 @@ pub struct ReadStatusResponse {
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
-/// CAN Interrupt Flag Register
+/// Interrupt Enable Register
+pub struct CANINTE {
+    /// Receive Buffer 0 Full Interrupt Enable
+    pub rx0ie: bool,
+    /// Receive Buffer 1 Full Interrupt Enable
+    pub rx1ie: bool,
+    /// Transmit Buffer 0 Empty Interrupt Enable
+    pub tx0ie: bool,
+    /// Transmit Buffer 1 Empty Interrupt Enable
+    pub tx1ie: bool,
+    /// Transmit Buffer 2 Empty Interrupt Enable
+    pub tx2ie: bool,
+    /// Error Interrupt Enable (multiple sources in the [`EFLG`] register)
+    pub errie: bool,
+    /// Wake-up Interrupt Enable
+    pub wakie: bool,
+    /// Message Error Interrupt Enable
+    pub merre: bool,
+}
+
+impl Register for CANINTE {
+    const ADDRESS: u8 = 0x2B;
+}
+
+impl Modify for CANINTE {}
+
+#[bitfield]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, Default)]
+/// Interrupt Flag Register
 pub struct CANINTF {
     /// Receive Buffer 0 Full Interrupt Flag
     pub rx0if: bool,
@@ -457,3 +468,67 @@ impl Register for EFLG {
 }
 
 impl Modify for EFLG {}
+
+#[bitfield]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, Default)]
+pub struct BFPCTRL {
+    pub b0bfm: bool,
+    pub b1bfm: bool,
+    pub b0bfe: bool,
+    pub b1bfe: bool,
+    pub b0bfs: bool,
+    pub b1bfs: bool,
+    #[skip]
+    __: B2,
+}
+
+impl Register for BFPCTRL {
+    const ADDRESS: u8 = 0x0C;
+}
+impl Modify for BFPCTRL {}
+
+#[bitfield]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, Default)]
+pub struct TXRTSCTRL {
+    pub b0rtsm: bool,
+    pub b1rtsm: bool,
+    pub b2rtsm: bool,
+    pub b0rts: bool,
+    pub b1rts: bool,
+    pub b2rts: bool,
+    #[skip]
+    __: B2,
+}
+
+impl Register for TXRTSCTRL {
+    const ADDRESS: u8 = 0x0D;
+}
+impl Modify for TXRTSCTRL {}
+
+/// Transmit Error Counter Register
+pub struct TEC(pub u8);
+
+impl Register for TEC {
+    const ADDRESS: u8 = 0x1C;
+}
+
+impl From<u8> for TEC {
+    fn from(val: u8) -> Self {
+        TEC(val)
+    }
+}
+
+/// Receive Error Counter Register
+pub struct REC(pub u8);
+
+impl Register for REC {
+    const ADDRESS: u8 = 0x1D;
+}
+
+impl From<u8> for REC {
+    fn from(val: u8) -> Self {
+        REC(val)
+    }
+}

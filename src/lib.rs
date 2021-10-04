@@ -7,12 +7,14 @@ use embedded_can::Frame;
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::OutputPin;
 
+pub use config::Config;
 pub use frame::CanFrame;
 pub use idheader::IdHeader;
 
 use crate::registers::*;
 
 pub mod bitrates;
+mod config;
 mod frame;
 mod idheader;
 pub mod registers;
@@ -69,6 +71,7 @@ pub enum RxBufferIndex {
     Idx1 = 1,
 }
 
+#[derive(Copy, Clone)]
 pub enum ReceiveBufferFilter {
     /// Associated with Receive Buffer 0
     Filter0 = 0x00,
@@ -137,6 +140,20 @@ where
         id: IdHeader,
     ) -> Result<(), <SPI as Transfer<u8>>::Error> {
         self.write_registers(filter as u8, &id.into_bytes())
+    }
+
+    pub fn apply_config(
+        &mut self,
+        config: &Config<'_>,
+    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
+        self.set_mode(REQOP::Configuration)?;
+        self.set_bitrate(config.cnf)?;
+        self.write_register(config.rxb0ctrl)?;
+        self.write_register(config.rxb1ctrl)?;
+        for &(filter, id_header) in config.filters {
+            self.set_filter(filter, id_header)?;
+        }
+        self.set_bitrate(config.cnf)
     }
 }
 
