@@ -5,6 +5,7 @@
 
 pub mod clock_8mhz {
     use crate::registers::CNF;
+
     // pub const CNF_1000K_BPS: CNF = CNF::from_bytes([0x80, 0x80, 0x00]); invalid see https://github.com/autowp/arduino-mcp2515/issues/44
     pub const CNF_500K_BPS: CNF = CNF::from_bytes([0x82, 0x90, 0x00]);
     pub const CNF_250K_BPS: CNF = CNF::from_bytes([0x85, 0xB1, 0x00]);
@@ -22,6 +23,7 @@ pub mod clock_8mhz {
 }
 pub mod clock_16mhz {
     use crate::registers::CNF;
+
     pub const CNF_1000K_BPS: CNF = CNF::from_bytes([0x82, 0xD0, 0x00]);
     pub const CNF_500K_BPS: CNF = CNF::from_bytes([0x86, 0xF0, 0x00]);
     pub const CNF_250K_BPS: CNF = CNF::from_bytes([0x85, 0xF1, 0x41]);
@@ -39,6 +41,7 @@ pub mod clock_16mhz {
 }
 pub mod clock_20mhz {
     use crate::registers::CNF;
+
     pub const CNF_1000K_BPS: CNF = CNF::from_bytes([0x82, 0xD9, 0x00]);
     pub const CNF_500K_BPS: CNF = CNF::from_bytes([0x87, 0xFA, 0x00]);
     pub const CNF_250K_BPS: CNF = CNF::from_bytes([0x86, 0xFB, 0x41]);

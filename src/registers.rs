@@ -25,9 +25,7 @@ pub struct RXB0CTRL {
     pub rxrtr: bool,
     #[skip]
     __: B1,
-    /// TODO enum Receive Buffer Operating Mode
-    pub rxm0: bool,
-    pub rxm1: bool,
+    pub rxm: RXM,
     #[skip]
     __: B1,
 }
@@ -51,9 +49,7 @@ pub struct RXB1CTRL {
     pub rxrtr: bool,
     #[skip]
     __: B1,
-    /// TODO enum Receive Buffer Operating Mode
-    pub rxm0: bool,
-    pub rxm1: bool,
+    pub rxm: RXM,
     #[skip]
     __: B1,
 }
@@ -61,6 +57,34 @@ impl Register for RXB1CTRL {
     const ADDRESS: u8 = 0x70;
 }
 impl Modify for RXB1CTRL {}
+
+#[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
+#[derive(BitfieldSpecifier, Debug)]
+#[bits = 2]
+/// Receive Buffer Operating Mode
+pub enum RXM {
+    /// Receive all valid messages using either standard or extended identifiers that meet filter criteria
+    Filter = 0b00,
+    /// Receive only valid messages with standard identifiers that meet filter criteria
+    FilterStandard = 0b01,
+    /// Receive only valid messages with extended identifiers that meet filter criteria
+    FilterExtended = 0b10,
+    /// Turn mask/filters off; receive any message
+    ReceiveAny = 0b11,
+}
+
+#[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+#[derive(BitfieldSpecifier, Debug)]
+#[bits = 2]
+/// Receive Buffer Operating Mode
+pub enum RXM {
+    /// Receive all valid messages using either standard or extended identifiers that meet filter criteria
+    Filter = 0b00,
+    Reserved1 = 0b01,
+    Reserved2 = 0b10,
+    /// Turn mask/filters off; receive any message
+    ReceiveAny = 0b11,
+}
 
 #[bitfield]
 #[repr(u8)]

@@ -3,14 +3,18 @@
 use core::convert::Infallible;
 use core::fmt::Debug;
 
+use embedded_can::Frame;
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::OutputPin;
 
+pub use frame::CanFrame;
+pub use idheader::IdHeader;
+
 use crate::registers::*;
-use embedded_can::Frame;
 
 pub mod bitrates;
-pub mod frame;
+mod frame;
+mod idheader;
 pub mod registers;
 
 #[repr(u8)]
@@ -65,6 +69,25 @@ pub enum RxBufferIndex {
     Idx1 = 1,
 }
 
+pub enum ReceiveBufferFilter {
+    /// Associated with Receive Buffer 0
+    Filter0 = 0x00,
+    /// Associated with Receive Buffer 0
+    Filter1 = 0x04,
+    /// Associated with Receive Buffer 1
+    Filter2 = 0x08,
+    /// Associated with Receive Buffer 1
+    Filter3 = 0x10,
+    /// Associated with Receive Buffer 1
+    Filter4 = 0x14,
+    /// Associated with Receive Buffer 1
+    Filter5 = 0x18,
+    /// Associated with Receive Buffer 0
+    Mask0 = 0x20,
+    /// Associated with Receive Buffer 1
+    Mask1 = 0x24,
+}
+
 pub struct MCP25xx<SPI, CS>
 where
     SPI: Transfer<u8>,
@@ -90,6 +113,31 @@ where
     pub fn set_bitrate(&mut self, cnf: CNF) -> Result<(), <SPI as Transfer<u8>>::Error> {
         self.write_registers(CNF::ADDRESS, &cnf.into_bytes())
     }
+    /// ```
+    /// # use mcp25xx::doctesthelper::get_mcp25xx;
+    /// use embedded_can::{StandardId, ExtendedId};
+    /// use mcp25xx::{MCP25xx, IdHeader, ReceiveBufferFilter::*};
+    ///
+    /// let mut mcp25xx = get_mcp25xx();
+    ///
+    /// let std_id = StandardId::new(1234).unwrap();
+    /// let ext_id = ExtendedId::new(4321).unwrap();
+    ///
+    /// mcp25xx.set_filter(Mask0, IdHeader::from(StandardId::MAX));
+    /// mcp25xx.set_filter(Filter0, IdHeader::from(std_id)).unwrap();
+    ///
+    /// mcp25xx.set_filter(Filter2, IdHeader::from(ext_id)).unwrap();
+    /// #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+    /// mcp25xx.set_filter(Filter3, IdHeader::with_two_data_bytes(std_id, [4, 5])).unwrap();
+    ///
+    /// ```
+    pub fn set_filter(
+        &mut self,
+        filter: ReceiveBufferFilter,
+        id: IdHeader,
+    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
+        self.write_registers(filter as u8, &id.into_bytes())
+    }
 }
 
 impl<SPI, CS> embedded_can::Can for MCP25xx<SPI, CS>
@@ -99,7 +147,7 @@ where
     <SPI as Transfer<u8>>::Error: Debug,
     CS: OutputPin<Error = Infallible>,
 {
-    type Frame = crate::frame::Frame;
+    type Frame = crate::frame::CanFrame;
     type Error = <SPI as Transfer<u8>>::Error;
 
     fn try_transmit(
@@ -250,16 +298,16 @@ where
     pub fn read_rx_buffer(
         &mut self,
         buf_idx: RxBufferIndex,
-    ) -> Result<crate::frame::Frame, <SPI as Transfer<u8>>::Error> {
+    ) -> Result<crate::frame::CanFrame, <SPI as Transfer<u8>>::Error> {
         // gets a view into the first 5 bytes of Frame
-        fn id_bytes(frame: &mut crate::frame::Frame) -> &mut [u8; 5] {
+        fn id_bytes(frame: &mut crate::frame::CanFrame) -> &mut [u8; 5] {
             // SAFETY:
             // Frame is [repr(C)] without any padding bytes
             // All bit patterns are valid
-            unsafe { &mut *(frame as *mut crate::frame::Frame as *mut [u8; 5]) }
+            unsafe { &mut *(frame as *mut crate::frame::CanFrame as *mut [u8; 5]) }
         }
 
-        let mut frame = crate::frame::Frame::default();
+        let mut frame = crate::frame::CanFrame::default();
 
         self.cs.set_low().ok();
 
@@ -298,3 +346,7 @@ where
             .write(&[Instruction::Read as u8, 0x61 + 0x10 * buf_idx as u8])
     }
 }
+
+#[doc(hidden)]
+// FIXME: #[cfg(doctest)] once https://github.com/rust-lang/rust/issues/67295 is fixed.
+pub mod doctesthelper;
