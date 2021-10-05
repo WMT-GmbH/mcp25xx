@@ -23,9 +23,16 @@ impl IdHeader {
 
     pub fn id(&self) -> Id {
         if self.exide() {
-            todo!()
+            let id = ((self.sidh as u32) << 21)
+                | ((self.sidl as u32 & 0xE0) << 13)
+                | (((self.sidl & 0b11) as u32) << 16)
+                | ((self.eid8 as u32) << 8)
+                | self.eid0 as u32;
+            // SAFETY:
+            // arithmetic above is always in bounds
+            unsafe { Id::Extended(embedded_can::ExtendedId::new_unchecked(id)) }
         } else {
-            let id = ((self.sidh as u16) << 3) + ((self.sidl as u16) >> 5);
+            let id = ((self.sidh as u16) << 3) | ((self.sidl as u16) >> 5);
             // SAFETY:
             // arithmetic above is always in bounds
             unsafe { Id::Standard(embedded_can::StandardId::new_unchecked(id)) }

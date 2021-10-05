@@ -1,15 +1,18 @@
 use modular_bitfield::prelude::*;
 
-pub trait Register {
+/// 8 bit Register
+pub trait Register: From<u8> + Into<u8> {
+    /// Address of the register
     const ADDRESS: u8;
 }
 
+/// Marker trait for Registers that support the `Modify` instruction.
 pub trait Modify {}
 
+/// Receive Buffer 0 Control Register
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
-/// Receive Buffer 0 Control Register
 pub struct RXB0CTRL {
     #[skip(setters)]
     /// Filter Hit bit (indicates which acceptance filter enabled reception of message)
@@ -30,16 +33,10 @@ pub struct RXB0CTRL {
     __: B1,
 }
 
-impl Register for RXB0CTRL {
-    const ADDRESS: u8 = 0x60;
-}
-
-impl Modify for RXB0CTRL {}
-
+/// Receive Buffer 1 Control Register
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
-/// Receive Buffer 1 Control Register
 pub struct RXB1CTRL {
     #[skip(setters)]
     /// Filter Hit bits (indicates which acceptance filter enabled reception of message)
@@ -53,15 +50,11 @@ pub struct RXB1CTRL {
     #[skip]
     __: B1,
 }
-impl Register for RXB1CTRL {
-    const ADDRESS: u8 = 0x70;
-}
-impl Modify for RXB1CTRL {}
 
-#[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
-#[derive(BitfieldSpecifier, Debug)]
-#[bits = 2]
 /// Receive Buffer Operating Mode
+#[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
+#[derive(BitfieldSpecifier, Copy, Clone, Debug)]
+#[bits = 2]
 pub enum RXM {
     /// Receive all valid messages using either standard or extended identifiers that meet filter criteria
     Filter = 0b00,
@@ -73,10 +66,10 @@ pub enum RXM {
     ReceiveAny = 0b11,
 }
 
-#[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
-#[derive(BitfieldSpecifier, Debug)]
-#[bits = 2]
 /// Receive Buffer Operating Mode
+#[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+#[derive(BitfieldSpecifier, Copy, Clone, Debug)]
+#[bits = 2]
 pub enum RXM {
     /// Receive all valid messages using either standard or extended identifiers that meet filter criteria
     Filter = 0b00,
@@ -86,11 +79,11 @@ pub enum RXM {
     ReceiveAny = 0b11,
 }
 
+/// Can Control Register
 #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
-/// Can Control Register
 pub struct CANCTRL {
     /// CLKOUT Pin Prescaler
     pub clkpre: CLKPRE,
@@ -104,11 +97,11 @@ pub struct CANCTRL {
     pub reqop: REQOP,
 }
 
+/// Can Control Register
 #[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
-/// Can Control Register
 pub struct CANCTRL {
     /// CLKOUT Pin Prescaler
     pub clkpre: CLKPRE,
@@ -122,9 +115,9 @@ pub struct CANCTRL {
     pub reqop: REQOP,
 }
 
-#[derive(BitfieldSpecifier, Debug)]
-#[bits = 3]
 /// Request Operation mode
+#[derive(BitfieldSpecifier, Copy, Clone, Debug)]
+#[bits = 3]
 pub enum REQOP {
     NormalOperation = 0b000,
     Sleep = 0b001,
@@ -136,20 +129,15 @@ pub enum REQOP {
     Invalid3 = 0b111,
 }
 
-#[derive(BitfieldSpecifier, Debug)]
-#[bits = 2]
 /// CLKOUT Pin Prescaler
+#[derive(BitfieldSpecifier, Copy, Clone, Debug)]
+#[bits = 2]
 pub enum CLKPRE {
     SystemClockDiv1 = 0b000,
     SystemClockDiv2 = 0b001,
     SystemClockDiv4 = 0b010,
     SystemClockDiv8 = 0b011,
 }
-
-impl Register for CANCTRL {
-    const ADDRESS: u8 = 0x0F;
-}
-impl Modify for CANCTRL {}
 
 /// ```ignore
 /// CANCTRL {
@@ -166,8 +154,10 @@ impl Default for CANCTRL {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default)]
 /// Configuration Registers
+///
+/// Note: Write operations require Configuration mode
+#[derive(Copy, Clone, Debug, Default)]
 pub struct CNF {
     /// Configuration 3 Register
     pub cnf3: CNF3,
@@ -175,10 +165,6 @@ pub struct CNF {
     pub cnf2: CNF2,
     /// Configuration 1 Register
     pub cnf1: CNF1,
-}
-
-impl Register for CNF {
-    const ADDRESS: u8 = CNF3::ADDRESS;
 }
 
 impl CNF {
@@ -198,10 +184,12 @@ impl CNF {
     }
 }
 
+/// Configuration 1 Register
+///
+/// Note: Write operations require Configuration mode
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
-/// Configuration 1 Register
 pub struct CNF1 {
     /// Baud Rate Prescaler
     pub brp: B6,
@@ -209,15 +197,12 @@ pub struct CNF1 {
     pub sjw: B2,
 }
 
-impl Register for CNF1 {
-    const ADDRESS: u8 = 0x2A;
-}
-impl Modify for CNF1 {}
-
+/// Configuration 2 Register
+///
+/// Note: Write operations require Configuration mode
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
-/// Configuration 2 Register
 pub struct CNF2 {
     /// Propagation Segment Length
     pub prseg: B3,
@@ -229,16 +214,13 @@ pub struct CNF2 {
     pub btlmode: bool,
 }
 
-impl Register for CNF2 {
-    const ADDRESS: u8 = 0x29;
-}
-impl Modify for CNF2 {}
-
+/// Configuration 3 Register
+///
+/// Note: Write operations require Configuration mode
 #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
-/// Configuration 3 Register
 pub struct CNF3 {
     /// PS2 Length
     /// Note: Minimum valid setting is 1
@@ -251,11 +233,13 @@ pub struct CNF3 {
     pub sof: bool,
 }
 
+/// Configuration 3 Register
+///
+/// Note: Write operations require Configuration mode
 #[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
 #[bitfield]
 #[repr(u8)]
-#[derive(BitfieldSpecifier, Copy, Clone, Debug, Default)]
-/// Configuration 3 Register
+#[derive(Copy, Clone, Debug, Default)]
 pub struct CNF3 {
     /// PS2 Length
     pub phseg2: B3,
@@ -267,15 +251,10 @@ pub struct CNF3 {
     __: B1,
 }
 
-impl Register for CNF3 {
-    const ADDRESS: u8 = 0x28;
-}
-impl Modify for CNF3 {}
-
+/// Data Length Code Register
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
-/// Data Length Code Register
 pub struct DLC {
     /// Data Length Code
     pub dlc: B4,
@@ -287,10 +266,10 @@ pub struct DLC {
     __: B1,
 }
 
+/// Transmit Buffer 0 Control Register
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
-/// Transmit Buffer 0 Control Register
 pub struct TXB0CTRL {
     /// Transmit Buffer Priority
     pub txp: B2,
@@ -308,15 +287,10 @@ pub struct TXB0CTRL {
     __: B1,
 }
 
-impl Register for TXB0CTRL {
-    const ADDRESS: u8 = 0x30;
-}
-
-impl Modify for TXB0CTRL {}
+/// Transmit Buffer 1 Control Register
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
-/// Transmit Buffer 1 Control Register
 pub struct TXB1CTRL {
     /// Transmit Buffer Priority
     pub txp: B2,
@@ -334,16 +308,10 @@ pub struct TXB1CTRL {
     __: B1,
 }
 
-impl Register for TXB1CTRL {
-    const ADDRESS: u8 = 0x40;
-}
-
-impl Modify for TXB1CTRL {}
-
+/// Transmit Buffer 2 Control Register
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
-/// Transmit Buffer 2 Control Register
 pub struct TXB2CTRL {
     /// Transmit Buffer Priority
     pub txp: B2,
@@ -361,31 +329,10 @@ pub struct TXB2CTRL {
     __: B1,
 }
 
-impl Register for TXB2CTRL {
-    const ADDRESS: u8 = 0x50;
-}
-
-impl Modify for TXB2CTRL {}
-
-#[bitfield]
-#[repr(u8)]
-#[derive(Copy, Clone, Debug, Default)]
-/// Read Status Response Bitfield
-pub struct ReadStatusResponse {
-    pub tx2if: bool,
-    pub txreq2: bool,
-    pub tx1if: bool,
-    pub txreq1: bool,
-    pub tx0if: bool,
-    pub txreq0: bool,
-    pub rx1if: bool,
-    pub rx0if: bool,
-}
-
-#[bitfield]
-#[repr(u8)]
-#[derive(Copy, Clone, Debug, Default)]
 /// Interrupt Enable Register
+#[bitfield]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct CANINTE {
     /// Receive Buffer 0 Full Interrupt Enable
     pub rx0ie: bool,
@@ -405,16 +352,10 @@ pub struct CANINTE {
     pub merre: bool,
 }
 
-impl Register for CANINTE {
-    const ADDRESS: u8 = 0x2B;
-}
-
-impl Modify for CANINTE {}
-
+/// Interrupt Flag Register
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
-/// Interrupt Flag Register
 pub struct CANINTF {
     /// Receive Buffer 0 Full Interrupt Flag
     pub rx0if: bool,
@@ -434,16 +375,10 @@ pub struct CANINTF {
     pub merrf: bool,
 }
 
-impl Register for CANINTF {
-    const ADDRESS: u8 = 0x2C;
-}
-
-impl Modify for CANINTF {}
-
+/// Error Flag Register
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
-/// Error Flag Register
 pub struct EFLG {
     /// Error Warning Flag bit
     pub ewarn: bool,
@@ -463,12 +398,7 @@ pub struct EFLG {
     pub rx1ovr: bool,
 }
 
-impl Register for EFLG {
-    const ADDRESS: u8 = 0x2D;
-}
-
-impl Modify for EFLG {}
-
+/// RXnBF Pin Control and Status Register
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
@@ -483,11 +413,9 @@ pub struct BFPCTRL {
     __: B2,
 }
 
-impl Register for BFPCTRL {
-    const ADDRESS: u8 = 0x0C;
-}
-impl Modify for BFPCTRL {}
-
+/// TXnRTS Pin Control and Status Register
+///
+/// Note: Write operations require Configuration mode
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
@@ -502,33 +430,143 @@ pub struct TXRTSCTRL {
     __: B2,
 }
 
-impl Register for TXRTSCTRL {
-    const ADDRESS: u8 = 0x0D;
-}
-impl Modify for TXRTSCTRL {}
-
 /// Transmit Error Counter Register
+#[derive(Copy, Clone, Debug, Default, Ord, PartialOrd, Eq, PartialEq)]
 pub struct TEC(pub u8);
-
-impl Register for TEC {
-    const ADDRESS: u8 = 0x1C;
-}
 
 impl From<u8> for TEC {
     fn from(val: u8) -> Self {
         TEC(val)
     }
 }
+impl From<TEC> for u8 {
+    fn from(val: TEC) -> Self {
+        val.0
+    }
+}
 
 /// Receive Error Counter Register
+#[derive(Copy, Clone, Debug, Default, Ord, PartialOrd, Eq, PartialEq)]
 pub struct REC(pub u8);
-
-impl Register for REC {
-    const ADDRESS: u8 = 0x1D;
-}
 
 impl From<u8> for REC {
     fn from(val: u8) -> Self {
         REC(val)
     }
 }
+impl From<REC> for u8 {
+    fn from(val: REC) -> Self {
+        val.0
+    }
+}
+
+/// Read Status Response Bitfield
+#[bitfield]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, Default)]
+pub struct ReadStatusResponse {
+    pub tx2if: bool,
+    pub txreq2: bool,
+    pub tx1if: bool,
+    pub txreq1: bool,
+    pub tx0if: bool,
+    pub txreq0: bool,
+    pub rx1if: bool,
+    pub rx0if: bool,
+}
+
+/// Read Status Response Bitfield
+#[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+#[bitfield]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, Default)]
+pub struct RxStatusResponse {
+    pub filter_match: FilterMatch,
+    pub is_remote: bool,
+    pub is_extended: bool,
+    #[skip]
+    __: B1,
+    /// Receive Buffer 0 Full Interrupt Flag
+    pub rx1if: bool,
+    /// Receive Buffer 1 Full Interrupt Flag
+    pub rx0if: bool,
+}
+
+/// The filter that matched the received message
+#[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+#[derive(BitfieldSpecifier, Copy, Clone, Debug)]
+#[bits = 3]
+pub enum FilterMatch {
+    RXF0,
+    RXF1,
+    RXF2,
+    RXF3,
+    RXF4,
+    RXF5,
+    RXF0Rollover,
+    RXF1Rollover,
+}
+
+impl Register for RXB0CTRL {
+    const ADDRESS: u8 = 0x60;
+}
+impl Register for RXB1CTRL {
+    const ADDRESS: u8 = 0x70;
+}
+impl Register for CANCTRL {
+    const ADDRESS: u8 = 0x0F;
+}
+impl Register for CNF1 {
+    const ADDRESS: u8 = 0x2A;
+}
+impl Register for CNF2 {
+    const ADDRESS: u8 = 0x29;
+}
+impl Register for CNF3 {
+    const ADDRESS: u8 = 0x28;
+}
+impl Register for TXB0CTRL {
+    const ADDRESS: u8 = 0x30;
+}
+impl Register for TXB1CTRL {
+    const ADDRESS: u8 = 0x40;
+}
+impl Register for TXB2CTRL {
+    const ADDRESS: u8 = 0x50;
+}
+impl Register for CANINTE {
+    const ADDRESS: u8 = 0x2B;
+}
+impl Register for CANINTF {
+    const ADDRESS: u8 = 0x2C;
+}
+impl Register for EFLG {
+    const ADDRESS: u8 = 0x2D;
+}
+impl Register for BFPCTRL {
+    const ADDRESS: u8 = 0x0C;
+}
+impl Register for TXRTSCTRL {
+    const ADDRESS: u8 = 0x0D;
+}
+impl Register for TEC {
+    const ADDRESS: u8 = 0x1C;
+}
+impl Register for REC {
+    const ADDRESS: u8 = 0x1D;
+}
+
+impl Modify for CANCTRL {}
+impl Modify for CNF1 {}
+impl Modify for CNF2 {}
+impl Modify for CNF3 {}
+impl Modify for TXB0CTRL {}
+impl Modify for TXB1CTRL {}
+impl Modify for TXB2CTRL {}
+impl Modify for RXB0CTRL {}
+impl Modify for RXB1CTRL {}
+impl Modify for CANINTE {}
+impl Modify for CANINTF {}
+impl Modify for EFLG {}
+impl Modify for BFPCTRL {}
+impl Modify for TXRTSCTRL {}
