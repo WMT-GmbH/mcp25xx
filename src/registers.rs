@@ -28,6 +28,7 @@ pub struct RXB0CTRL {
     pub rxrtr: bool,
     #[skip]
     __: B1,
+    /// Receive Buffer Operating Mode
     pub rxm: RXM,
     #[skip]
     __: B1,
@@ -46,6 +47,7 @@ pub struct RXB1CTRL {
     pub rxrtr: bool,
     #[skip]
     __: B1,
+    /// Receive Buffer Operating Mode
     pub rxm: RXM,
     #[skip]
     __: B1,
@@ -94,7 +96,7 @@ pub struct CANCTRL {
     /// Abort All Pending Transmissions
     pub abat: bool,
     /// Request Operation Mode
-    pub reqop: REQOP,
+    pub reqop: OperationMode,
 }
 
 /// Can Control Register
@@ -112,13 +114,13 @@ pub struct CANCTRL {
     /// Abort All Pending Transmissions
     pub abat: bool,
     /// Request Operation Mode
-    pub reqop: REQOP,
+    pub reqop: OperationMode,
 }
 
 /// Request Operation mode
 #[derive(BitfieldSpecifier, Copy, Clone, Debug)]
 #[bits = 3]
-pub enum REQOP {
+pub enum OperationMode {
     NormalOperation = 0b000,
     Sleep = 0b001,
     Loopback = 0b010,
@@ -145,12 +147,32 @@ pub enum CLKPRE {
 ///     clken: true,
 ///     osm: false, // field not present on MCP2510
 ///     abat: false,
-///     reqop: REQOP::Configuration,
+///     reqop: OperationMode::Configuration,
 /// }
 /// ```
 impl Default for CANCTRL {
     fn default() -> Self {
         0b1000_0111.into()
+    }
+}
+
+#[bitfield]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug)]
+pub struct CANSTAT {
+    #[skip]
+    __: B1,
+    /// Interrupt Flag Code TODO
+    pub icod: B3,
+    #[skip]
+    __: B1,
+    /// Operation Mode
+    pub opmod: OperationMode,
+}
+
+impl Default for CANSTAT {
+    fn default() -> Self {
+        0b1000_0000.into()
     }
 }
 
@@ -465,14 +487,22 @@ impl From<REC> for u8 {
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
 pub struct ReadStatusResponse {
-    pub tx2if: bool,
-    pub txreq2: bool,
-    pub tx1if: bool,
-    pub txreq1: bool,
-    pub tx0if: bool,
-    pub txreq0: bool,
-    pub rx1if: bool,
+    /// Receive Buffer 0 Full Interrupt Flag
     pub rx0if: bool,
+    /// Receive Buffer 1 Full Interrupt Flag
+    pub rx1if: bool,
+    /// Message Transmit Request bit
+    pub txreq0: bool,
+    /// Transmit Buffer 0 Empty Interrupt Flag
+    pub tx0if: bool,
+    /// Message Transmit Request bit
+    pub txreq1: bool,
+    /// Transmit Buffer 1 Empty Interrupt Flag
+    pub tx1if: bool,
+    /// Message Transmit Request bit
+    pub txreq2: bool,
+    /// Transmit Buffer 2 Empty Interrupt Flag
+    pub tx2if: bool,
 }
 
 /// Read Status Response Bitfield
@@ -487,9 +517,9 @@ pub struct RxStatusResponse {
     #[skip]
     __: B1,
     /// Receive Buffer 0 Full Interrupt Flag
-    pub rx1if: bool,
-    /// Receive Buffer 1 Full Interrupt Flag
     pub rx0if: bool,
+    /// Receive Buffer 1 Full Interrupt Flag
+    pub rx1if: bool,
 }
 
 /// The filter that matched the received message
@@ -515,6 +545,9 @@ impl Register for RXB1CTRL {
 }
 impl Register for CANCTRL {
     const ADDRESS: u8 = 0x0F;
+}
+impl Register for CANSTAT {
+    const ADDRESS: u8 = 0x0E;
 }
 impl Register for CNF1 {
     const ADDRESS: u8 = 0x2A;

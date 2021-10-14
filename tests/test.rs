@@ -19,7 +19,7 @@ fn test_set_mode() {
         ])],
         1,
     );
-    bus.set_mode(REQOP::Configuration).unwrap();
+    bus.set_mode(OperationMode::Configuration).unwrap();
     bus.cs.done();
     bus.spi.done();
 }

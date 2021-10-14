@@ -1,4 +1,4 @@
-use crate::registers::{CANCTRL, CNF, REQOP, RXB0CTRL, RXB1CTRL};
+use crate::registers::{OperationMode, CANCTRL, CNF, RXB0CTRL, RXB1CTRL};
 use crate::{AcceptanceFilter, IdHeader};
 
 #[derive(Clone, Debug, Default)]
@@ -12,7 +12,7 @@ pub struct Config<'a> {
 
 impl<'a> Config<'a> {
     #[inline]
-    pub fn mode(mut self, mode: REQOP) -> Self {
+    pub fn mode(mut self, mode: OperationMode) -> Self {
         self.canctrl.set_reqop(mode);
         self
     }

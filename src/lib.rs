@@ -3,6 +3,7 @@
 use core::convert::Infallible;
 use core::fmt::Debug;
 
+pub use embedded_can;
 use embedded_can::Frame;
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::OutputPin;
@@ -14,10 +15,11 @@ pub use idheader::IdHeader;
 use crate::registers::*;
 
 pub mod bitrates;
+pub mod registers;
+
 mod config;
 mod frame;
 mod idheader;
-pub mod registers;
 
 #[derive(Copy, Clone, Debug)]
 pub enum AcceptanceFilter {
@@ -60,12 +62,12 @@ where
     /// ```
     /// # use mcp25xx::doctesthelper::get_mcp25xx;
     /// use mcp25xx::{MCP25xx, Config};
-    /// use mcp25xx::registers::{REQOP, RXB0CTRL, RXM};
+    /// use mcp25xx::registers::{OperationMode, RXB0CTRL, RXM};
     /// use mcp25xx::bitrates::clock_16mhz::CNF_500K_BPS;
     ///
     /// let mut mcp25xx: MCP25xx<_,_> = get_mcp25xx();
     /// let config = Config::default()
-    ///     .mode(REQOP::NormalOperation)
+    ///     .mode(OperationMode::NormalOperation)
     ///     .bitrate(CNF_500K_BPS)
     ///     .receive_buffer_0(RXB0CTRL::default().with_rxm(RXM::ReceiveAny));
     /// mcp25xx.apply_config(&config).unwrap();
@@ -84,7 +86,7 @@ where
         self.write_register(config.canctrl)
     }
 
-    pub fn set_mode(&mut self, mode: REQOP) -> Result<(), <SPI as Transfer<u8>>::Error> {
+    pub fn set_mode(&mut self, mode: OperationMode) -> Result<(), <SPI as Transfer<u8>>::Error> {
         let reg = CANCTRL::new().with_reqop(mode);
         self.modify_register(reg, 0b11100000)
     }
@@ -321,7 +323,7 @@ where
 
         #[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
         // need to manually reset the interrupt flag bit if Instruction::ReadRxBuffer is not available
-        self.modify_register(CANINTF::new(), buf_idx as u8)?;
+        self.modify_register(CANINTF::new(), 1 << buf_idx as u8)?;
         Ok(frame)
     }
 
