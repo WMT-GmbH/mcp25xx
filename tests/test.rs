@@ -20,15 +20,15 @@ fn test_set_mode() {
         1,
     );
     bus.set_mode(OperationMode::Configuration).unwrap();
-    bus.cs.done();
-    bus.spi.done();
+    bus.0.cs.done();
+    bus.0.spi.done();
 }
 
 #[test]
 fn test_set_bitrate() {
     let mut bus = get_mock_bus(
         &[
-            Transaction::write(vec![Instruction::Write as u8, CNF::ADDRESS]),
+            Transaction::write(vec![Instruction::Write as u8, CNF3::ADDRESS]),
             Transaction::write(vec![0x82, 0x90, 0x00]),
         ],
         1,
@@ -36,8 +36,8 @@ fn test_set_bitrate() {
 
     bus.set_bitrate(mcp25xx::bitrates::clock_8mhz::CNF_500K_BPS)
         .unwrap();
-    bus.cs.done();
-    bus.spi.done();
+    bus.0.cs.done();
+    bus.0.spi.done();
 }
 
 #[test]
@@ -61,6 +61,6 @@ fn test_transmit() {
     let frame = CanFrame::new(Id::Standard(StandardId::new(1).unwrap()), &[1, 2, 3]).unwrap();
 
     bus.try_transmit(&frame).unwrap();
-    bus.cs.done();
-    bus.spi.done();
+    bus.0.cs.done();
+    bus.0.spi.done();
 }

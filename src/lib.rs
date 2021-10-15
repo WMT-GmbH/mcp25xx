@@ -1,16 +1,14 @@
 #![no_std]
 
-use core::convert::Infallible;
 use core::fmt::Debug;
 
 pub use embedded_can;
 use embedded_can::Frame;
-use embedded_hal::blocking::spi::{Transfer, Write};
-use embedded_hal::digital::v2::OutputPin;
 
 pub use config::Config;
 pub use frame::CanFrame;
 pub use idheader::IdHeader;
+pub use interface::{Interface, SpiWithCs};
 
 use crate::registers::*;
 
@@ -20,62 +18,25 @@ pub mod registers;
 mod config;
 mod frame;
 mod idheader;
+mod interface;
 
-#[derive(Copy, Clone, Debug)]
-pub enum AcceptanceFilter {
-    /// Associated with Receive Buffer 0
-    Filter0 = 0x00,
-    /// Associated with Receive Buffer 0
-    Filter1 = 0x04,
-    /// Associated with Receive Buffer 1
-    Filter2 = 0x08,
-    /// Associated with Receive Buffer 1
-    Filter3 = 0x10,
-    /// Associated with Receive Buffer 1
-    Filter4 = 0x14,
-    /// Associated with Receive Buffer 1
-    Filter5 = 0x18,
-    /// Associated with Receive Buffer 0
-    Mask0 = 0x20,
-    /// Associated with Receive Buffer 1
-    Mask1 = 0x24,
-}
+pub struct MCP25xx<I>(pub I);
 
-pub struct MCP25xx<SPI, CS>
-where
-    SPI: Transfer<u8>,
-    SPI: Write<u8, Error = <SPI as Transfer<u8>>::Error>,
-    <SPI as Transfer<u8>>::Error: Debug,
-    CS: OutputPin<Error = Infallible>,
-{
-    pub spi: SPI,
-    pub cs: CS,
-}
-
-impl<SPI, CS> MCP25xx<SPI, CS>
-where
-    SPI: Transfer<u8>,
-    SPI: Write<u8, Error = <SPI as Transfer<u8>>::Error>,
-    <SPI as Transfer<u8>>::Error: Debug,
-    CS: OutputPin<Error = Infallible>,
-{
+impl<I: Interface> MCP25xx<I> {
     /// ```
     /// # use mcp25xx::doctesthelper::get_mcp25xx;
     /// use mcp25xx::{MCP25xx, Config};
     /// use mcp25xx::registers::{OperationMode, RXB0CTRL, RXM};
     /// use mcp25xx::bitrates::clock_16mhz::CNF_500K_BPS;
     ///
-    /// let mut mcp25xx: MCP25xx<_,_> = get_mcp25xx();
+    /// let mut mcp25xx: MCP25xx<_> = get_mcp25xx();
     /// let config = Config::default()
     ///     .mode(OperationMode::NormalOperation)
     ///     .bitrate(CNF_500K_BPS)
     ///     .receive_buffer_0(RXB0CTRL::default().with_rxm(RXM::ReceiveAny));
     /// mcp25xx.apply_config(&config).unwrap();
     /// ```
-    pub fn apply_config(
-        &mut self,
-        config: &Config<'_>,
-    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
+    pub fn apply_config(&mut self, config: &Config<'_>) -> Result<(), I::Error> {
         self.reset()?;
         self.set_bitrate(config.cnf)?;
         self.write_register(config.rxb0ctrl)?;
@@ -86,12 +47,12 @@ where
         self.write_register(config.canctrl)
     }
 
-    pub fn set_mode(&mut self, mode: OperationMode) -> Result<(), <SPI as Transfer<u8>>::Error> {
+    pub fn set_mode(&mut self, mode: OperationMode) -> Result<(), I::Error> {
         let reg = CANCTRL::new().with_reqop(mode);
         self.modify_register(reg, 0b11100000)
     }
 
-    pub fn set_bitrate(&mut self, cnf: CNF) -> Result<(), <SPI as Transfer<u8>>::Error> {
+    pub fn set_bitrate(&mut self, cnf: CNF) -> Result<(), I::Error> {
         self.write_registers(CNF3::ADDRESS, &cnf.into_bytes())
     }
     /// Note: Requires Configuration mode
@@ -101,7 +62,7 @@ where
     /// use embedded_can::{StandardId, ExtendedId};
     /// use mcp25xx::{MCP25xx, IdHeader, AcceptanceFilter::*};
     ///
-    /// let mut mcp25xx: MCP25xx<_,_> = get_mcp25xx();
+    /// let mut mcp25xx: MCP25xx<_> = get_mcp25xx();
     ///
     /// let std_id = StandardId::new(1234).unwrap();
     /// let ext_id = ExtendedId::new(4321).unwrap();
@@ -114,51 +75,41 @@ where
     /// mcp25xx.set_filter(Filter3, IdHeader::with_two_data_bytes(std_id, [4, 5])).unwrap();
     ///
     /// ```
-    pub fn set_filter(
-        &mut self,
-        filter: AcceptanceFilter,
-        id: IdHeader,
-    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
+    pub fn set_filter(&mut self, filter: AcceptanceFilter, id: IdHeader) -> Result<(), I::Error> {
         self.write_registers(filter as u8, &id.into_bytes())
     }
 
-    pub fn read_status(&mut self) -> Result<ReadStatusResponse, <SPI as Transfer<u8>>::Error> {
-        self.cs.set_low().ok();
-        self.spi.write(&[Instruction::ReadStatus as u8])?;
+    pub fn read_status(&mut self) -> Result<ReadStatusResponse, I::Error> {
+        self.0.set_cs(false);
+        self.0.write(&[Instruction::ReadStatus as u8])?;
         let mut buf = [0];
-        self.spi.transfer(&mut buf)?;
-        self.cs.set_high().ok();
+        self.0.transfer(&mut buf)?;
+        self.0.set_cs(true);
         Ok(ReadStatusResponse::from_bytes(buf))
     }
 
     /// Resets internal registers to the default state, sets Configuration mode.
-    pub fn reset(&mut self) -> Result<(), <SPI as Transfer<u8>>::Error> {
-        self.cs.set_low().ok();
-        self.spi.write(&[Instruction::Reset as u8])?;
-        self.cs.set_high().ok();
+    pub fn reset(&mut self) -> Result<(), I::Error> {
+        self.0.set_cs(false);
+        self.0.write(&[Instruction::Reset as u8])?;
+        self.0.set_cs(true);
         Ok(())
     }
 
     #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
-    pub fn rx_status(&mut self) -> Result<RxStatusResponse, <SPI as Transfer<u8>>::Error> {
-        self.cs.set_low().ok();
-        self.spi.write(&[Instruction::RxStatus as u8])?;
+    pub fn rx_status(&mut self) -> Result<RxStatusResponse, I::Error> {
+        self.0.set_cs(false);
+        self.0.write(&[Instruction::RxStatus as u8])?;
         let mut buf = [0];
-        self.spi.transfer(&mut buf)?;
-        self.cs.set_high().ok();
+        self.0.transfer(&mut buf)?;
+        self.0.set_cs(true);
         Ok(RxStatusResponse::from_bytes(buf))
     }
 }
 
-impl<SPI, CS> embedded_can::Can for MCP25xx<SPI, CS>
-where
-    SPI: Transfer<u8>,
-    SPI: Write<u8, Error = <SPI as Transfer<u8>>::Error>,
-    <SPI as Transfer<u8>>::Error: Debug,
-    CS: OutputPin<Error = Infallible>,
-{
+impl<I: Interface> embedded_can::Can for MCP25xx<I> {
     type Frame = crate::frame::CanFrame;
-    type Error = <SPI as Transfer<u8>>::Error;
+    type Error = I::Error;
 
     fn try_transmit(
         &mut self,
@@ -196,30 +147,21 @@ where
     }
 }
 
-impl<SPI, CS> MCP25xx<SPI, CS>
-where
-    SPI: Transfer<u8>,
-    SPI: Write<u8, Error = <SPI as Transfer<u8>>::Error>,
-    <SPI as Transfer<u8>>::Error: Debug,
-    CS: OutputPin<Error = Infallible>,
-{
-    pub fn read_register<R: Register>(&mut self) -> Result<R, <SPI as Transfer<u8>>::Error> {
-        self.cs.set_low().ok();
-        self.spi.write(&[Instruction::Read as u8, R::ADDRESS])?;
+impl<I: Interface> MCP25xx<I> {
+    pub fn read_register<R: Register>(&mut self) -> Result<R, I::Error> {
+        self.0.set_cs(false);
+        self.0.write(&[Instruction::Read as u8, R::ADDRESS])?;
         let mut reg = [0];
-        self.spi.transfer(&mut reg)?;
-        self.cs.set_high().ok();
+        self.0.transfer(&mut reg)?;
+        self.0.set_cs(true);
         Ok(reg[0].into())
     }
 
-    pub fn write_register<R: Register + Into<u8>>(
-        &mut self,
-        reg: R,
-    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
-        self.cs.set_low().ok();
-        self.spi
+    pub fn write_register<R: Register + Into<u8>>(&mut self, reg: R) -> Result<(), I::Error> {
+        self.0.set_cs(false);
+        self.0
             .write(&[Instruction::Write as u8, R::ADDRESS, reg.into()])?;
-        self.cs.set_high().ok();
+        self.0.set_cs(true);
         Ok(())
     }
 
@@ -227,77 +169,58 @@ where
         &mut self,
         reg: R,
         mask: u8,
-    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
-        self.cs.set_low().ok();
-        self.spi
+    ) -> Result<(), I::Error> {
+        self.0.set_cs(false);
+        self.0
             .write(&[Instruction::BitModify as u8, R::ADDRESS, mask, reg.into()])?;
-        self.cs.set_high().ok();
+        self.0.set_cs(true);
         Ok(())
     }
 
-    pub fn read_registers(
-        &mut self,
-        start_address: u8,
-        buf: &mut [u8],
-    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
-        self.cs.set_low().ok();
-        self.spi.write(&[Instruction::Read as u8, start_address])?;
-        self.spi.transfer(buf)?;
-        self.cs.set_high().ok();
+    pub fn read_registers(&mut self, start_address: u8, buf: &mut [u8]) -> Result<(), I::Error> {
+        self.0.set_cs(false);
+        self.0.write(&[Instruction::Read as u8, start_address])?;
+        self.0.transfer(buf)?;
+        self.0.set_cs(true);
         Ok(())
     }
 
-    pub fn write_registers(
-        &mut self,
-        start_address: u8,
-        data: &[u8],
-    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
-        self.cs.set_low().ok();
-        self.spi.write(&[Instruction::Write as u8, start_address])?;
-        self.spi.write(data)?;
-        self.cs.set_high().ok();
+    pub fn write_registers(&mut self, start_address: u8, data: &[u8]) -> Result<(), I::Error> {
+        self.0.set_cs(false);
+        self.0.write(&[Instruction::Write as u8, start_address])?;
+        self.0.write(data)?;
+        self.0.set_cs(true);
         Ok(())
     }
 
-    pub fn request_to_send(
-        &mut self,
-        buf_idx: TxBuffer,
-    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
-        self.cs.set_low().ok();
-        self.spi
+    pub fn request_to_send(&mut self, buf_idx: TxBuffer) -> Result<(), I::Error> {
+        self.0.set_cs(false);
+        self.0
             .write(&[Instruction::Rts as u8 | (1 << buf_idx as u8)])?;
-        self.cs.set_high().ok();
+        self.0.set_cs(true);
         Ok(())
     }
 
     #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
-    pub fn load_tx_buffer(
-        &mut self,
-        buf_idx: TxBuffer,
-        data: &[u8],
-    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
-        self.cs.set_low().ok();
-        self.spi
+    pub fn load_tx_buffer(&mut self, buf_idx: TxBuffer, data: &[u8]) -> Result<(), I::Error> {
+        self.0.set_cs(false);
+        self.0
             .write(&[Instruction::LoadTxBuffer as u8 | (buf_idx as u8 * 2)])?;
-        self.spi.write(data)?;
-        self.cs.set_high().ok();
+        self.0.write(data)?;
+        self.0.set_cs(true);
         Ok(())
     }
 
     #[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
     #[inline]
-    pub fn load_tx_buffer(
-        &mut self,
-        buf_idx: TxBuffer,
-        data: &[u8],
-    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
+    pub fn load_tx_buffer(&mut self, buf_idx: TxBuffer, data: &[u8]) -> Result<(), I::Error> {
         self.write_registers(0x31 + 0x10 * buf_idx as u8, data)
     }
 
     pub fn read_rx_buffer(
         &mut self,
         buf_idx: RxBuffer,
-    ) -> Result<crate::frame::CanFrame, <SPI as Transfer<u8>>::Error> {
+    ) -> Result<crate::frame::CanFrame, I::Error> {
         // gets a view into the first 5 bytes of Frame
         fn id_bytes(frame: &mut crate::frame::CanFrame) -> &mut [u8; 5] {
             // SAFETY:
@@ -308,18 +231,18 @@ where
 
         let mut frame = crate::frame::CanFrame::default();
 
-        self.cs.set_low().ok();
+        self.0.set_cs(false);
 
         self.send_read_rx_instruction(buf_idx)?;
-        self.spi.transfer(id_bytes(&mut frame))?;
+        self.0.transfer(id_bytes(&mut frame))?;
         let mut dlc = frame.dlc();
         if dlc > 8 {
             dlc = 8;
             frame.dlc.set_dlc(8);
         }
-        self.spi.transfer(&mut frame.data[0..dlc])?;
+        self.0.transfer(&mut frame.data[0..dlc])?;
 
-        self.cs.set_high().ok();
+        self.0.set_cs(true);
 
         #[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
         // need to manually reset the interrupt flag bit if Instruction::ReadRxBuffer is not available
@@ -328,22 +251,36 @@ where
     }
 
     #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
-    fn send_read_rx_instruction(
-        &mut self,
-        buf_idx: RxBuffer,
-    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
-        self.spi
+    fn send_read_rx_instruction(&mut self, buf_idx: RxBuffer) -> Result<(), I::Error> {
+        self.0
             .write(&[Instruction::ReadRxBuffer as u8 | (buf_idx as u8 * 2)])
     }
 
     #[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
-    fn send_read_rx_instruction(
-        &mut self,
-        buf_idx: RxBuffer,
-    ) -> Result<(), <SPI as Transfer<u8>>::Error> {
-        self.spi
+    fn send_read_rx_instruction(&mut self, buf_idx: RxBuffer) -> Result<(), I::Error> {
+        self.0
             .write(&[Instruction::Read as u8, 0x61 + 0x10 * buf_idx as u8])
     }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum AcceptanceFilter {
+    /// Associated with Receive Buffer 0
+    Filter0 = 0x00,
+    /// Associated with Receive Buffer 0
+    Filter1 = 0x04,
+    /// Associated with Receive Buffer 1
+    Filter2 = 0x08,
+    /// Associated with Receive Buffer 1
+    Filter3 = 0x10,
+    /// Associated with Receive Buffer 1
+    Filter4 = 0x14,
+    /// Associated with Receive Buffer 1
+    Filter5 = 0x18,
+    /// Associated with Receive Buffer 0
+    Mask0 = 0x20,
+    /// Associated with Receive Buffer 1
+    Mask1 = 0x24,
 }
 
 #[derive(Copy, Clone, Debug)]
