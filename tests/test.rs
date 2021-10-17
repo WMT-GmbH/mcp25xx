@@ -20,8 +20,8 @@ fn test_set_mode() {
         1,
     );
     bus.set_mode(OperationMode::Configuration).unwrap();
-    bus.0.cs.done();
-    bus.0.spi.done();
+    bus.cs.done();
+    bus.spi.done();
 }
 
 #[test]
@@ -36,8 +36,8 @@ fn test_set_bitrate() {
 
     bus.set_bitrate(mcp25xx::bitrates::clock_8mhz::CNF_500K_BPS)
         .unwrap();
-    bus.0.cs.done();
-    bus.0.spi.done();
+    bus.cs.done();
+    bus.spi.done();
 }
 
 #[test]
@@ -61,6 +61,6 @@ fn test_transmit() {
     let frame = CanFrame::new(Id::Standard(StandardId::new(1).unwrap()), &[1, 2, 3]).unwrap();
 
     bus.try_transmit(&frame).unwrap();
-    bus.0.cs.done();
-    bus.0.spi.done();
+    bus.cs.done();
+    bus.spi.done();
 }

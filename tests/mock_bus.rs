@@ -1,16 +1,16 @@
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal_mock::common::Generic;
 use embedded_hal_mock::spi::{Mock, Transaction};
-use mcp25xx::{MCP25xx, SpiWithCs};
+use mcp25xx::MCP25xx;
 use std::convert::Infallible;
 
 pub fn get_mock_bus(
     spi_expectations: &[Transaction],
     cs_toggles: usize,
-) -> MCP25xx<SpiWithCs<Generic<Transaction>, MockCS>> {
+) -> MCP25xx<Generic<Transaction>, MockCS> {
     let cs = MockCS::new(cs_toggles);
     let spi = Mock::new(spi_expectations);
-    MCP25xx(SpiWithCs { spi, cs })
+    MCP25xx { spi, cs }
 }
 
 pub struct MockCS(usize);

@@ -3,14 +3,14 @@ use core::convert::Infallible;
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::OutputPin;
 
-use crate::{MCP25xx, SpiWithCs};
+use crate::MCP25xx;
 
-/// used for docs tests
-pub fn get_mcp25xx() -> MCP25xx<SpiWithCs<NoOpSPI, NoOpCS>> {
-    MCP25xx(SpiWithCs {
+/// used for doc tests
+pub fn get_mcp25xx() -> MCP25xx<NoOpSPI, NoOpCS> {
+    MCP25xx {
         spi: NoOpSPI,
         cs: NoOpCS,
-    })
+    }
 }
 
 pub struct NoOpCS;
