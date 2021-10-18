@@ -45,7 +45,7 @@ impl IdHeader {
     }
 
     pub(crate) fn into_bytes(self) -> [u8; 4] {
-        [self.sidh, self.sidl, self.eid8, self.sidh]
+        [self.sidh, self.sidl, self.eid8, self.eid0]
     }
 }
 
