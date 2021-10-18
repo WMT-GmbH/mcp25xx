@@ -1,9 +1,11 @@
-use embedded_can::Id;
+use core::fmt::Debug;
+
+use embedded_can::{Frame, Id};
 
 use crate::registers::DLC;
 use crate::IdHeader;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 #[repr(C)]
 pub struct CanFrame {
     pub(crate) id_header: IdHeader,
@@ -30,7 +32,7 @@ impl CanFrame {
     }
 }
 
-impl embedded_can::Frame for CanFrame {
+impl Frame for CanFrame {
     fn new(id: impl Into<Id>, data: &[u8]) -> Result<Self, ()> {
         if data.len() > 8 {
             return Err(());
@@ -80,5 +82,21 @@ impl embedded_can::Frame for CanFrame {
     #[inline]
     fn data(&self) -> &[u8] {
         &self.data[0..self.dlc()]
+    }
+}
+
+impl Debug for CanFrame {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("CanFrame")
+            .field(
+                "id",
+                match &self.id() {
+                    Id::Standard(id) => id,
+                    Id::Extended(id) => id,
+                },
+            )
+            .field("is_remote_frame", &self.is_remote_frame())
+            .field("data", &self.data())
+            .finish()
     }
 }
