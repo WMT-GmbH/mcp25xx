@@ -29,6 +29,7 @@ impl<SPI, CS> MCP25xx<SPI, CS>
 where
     Self: SpiWithCs,
 {
+    // TODO mention mask default state
     /// ```
     /// # use mcp25xx::doctesthelper::get_mcp25xx;
     /// use mcp25xx::{MCP25xx, Config};
@@ -159,6 +160,8 @@ where
         }
     }
 }
+
+impl<SPI, CS> embedded_can::blocking::Default for MCP25xx<SPI, CS> where Self: SpiWithCs {}
 
 impl<SPI, CS> MCP25xx<SPI, CS>
 where
