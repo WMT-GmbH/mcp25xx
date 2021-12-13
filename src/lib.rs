@@ -1,4 +1,46 @@
+//! `no_std` library for the MCP2510, MCP2515 and MCP25625 CAN controller chips.
+//!
+//! API is implemented in terms of of the [`embedded_hal`] and [`embedded_can`] traits.
+//!
+//! # Example
+//!
+//! ```
+//! use embedded_can::blocking::Can as _;
+//! use embedded_can::{Can, Frame, StandardId};
+//! use mcp25xx::bitrates::clock_16mhz::CNF_500K_BPS;
+//! # use mcp25xx::doctesthelper::{NoOpCS, NoOpSPI};
+//! use mcp25xx::registers::{OperationMode, RXB0CTRL, RXM};
+//! use mcp25xx::{CanFrame, Config, MCP25xx};
+//!
+//! # let spi = NoOpSPI;
+//! # let cs = NoOpCS;
+//! #
+//! // spi, cs and timer are structs implementing their respective embedded_hal traits.
+//!
+//! let mut mcp25xx = MCP25xx { spi, cs };
+//!
+//! let config = Config::default()
+//!     .mode(OperationMode::NormalOperation)
+//!     .bitrate(CNF_500K_BPS)
+//!     .receive_buffer_0(RXB0CTRL::default().with_rxm(RXM::ReceiveAny));
+//!
+//! mcp25xx.apply_config(&config).unwrap();
+//!
+//! // Send a frame
+//! let can_id = StandardId::new(123).unwrap();
+//! let data = [1, 2, 3, 4, 5, 6, 7, 8];
+//! let frame = CanFrame::new(can_id, &data).unwrap();
+//! mcp25xx.try_write(&frame).unwrap();
+//!
+//! // Receive a frame
+//! if let Ok(frame) = mcp25xx.try_receive() {
+//!     let _can_id = frame.id();
+//!     let _data = frame.data();
+//! }
+//! ```
+
 #![no_std]
+#![cfg_attr(doc, feature(doc_cfg))]
 
 use core::fmt::Debug;
 
@@ -12,7 +54,9 @@ pub use spi_trait::SpiWithCs;
 
 use crate::registers::*;
 
+/// Preconfigured CNF registers for 8, 16 and 20 Mhz oscillators
 pub mod bitrates;
+/// Register bitfields
 pub mod registers;
 
 mod config;
@@ -20,6 +64,11 @@ mod frame;
 mod idheader;
 mod spi_trait;
 
+/// Either a MCP2510, MCP2515 or MCP25625 CAN controller
+///
+/// ## Note about MCP2515 and MCP25625
+/// These chip revisions offer more efficient commands which the MCP2510 does not support.
+/// You can opt in into these by activating the `mcp2515` or `mcp25625` feature of this crate.
 pub struct MCP25xx<SPI, CS> {
     pub spi: SPI,
     pub cs: CS,
@@ -29,18 +78,35 @@ impl<SPI, CS> MCP25xx<SPI, CS>
 where
     Self: SpiWithCs,
 {
-    // TODO mention mask default state
+    /// Performs the following steps:
+    /// * resets the CAN Controller (this resets all registers and puts it into configuration mode)
+    /// * applies configuration
+    /// * applies selected operation mode
+    ///
+    /// ## Note about Masks
+    /// The default state of the mask registers is all zeros, which means, filters get ignored.
+    /// You should give values for both mask registers even if you only intend to use one receive buffer.
+    ///
     /// ```
     /// # use mcp25xx::doctesthelper::get_mcp25xx;
-    /// use mcp25xx::{MCP25xx, Config};
-    /// use mcp25xx::registers::{OperationMode, RXB0CTRL, RXM};
-    /// use mcp25xx::bitrates::clock_16mhz::CNF_500K_BPS;
+    /// # use mcp25xx::{AcceptanceFilter, Config, MCP25xx};
+    /// # use mcp25xx::registers::OperationMode;
+    /// # use mcp25xx::bitrates::clock_16mhz::CNF_500K_BPS;
+    /// # use embedded_can::StandardId;
     ///
     /// let mut mcp25xx: MCP25xx<_, _> = get_mcp25xx();
+    ///
+    /// let can_id = StandardId::new(123).unwrap();
+    /// let filters = [
+    ///     (AcceptanceFilter::Filter0, can_id.into()),
+    ///     (AcceptanceFilter::Mask0, StandardId::MAX.into()),
+    ///     (AcceptanceFilter::Mask1, StandardId::MAX.into()),
+    /// ];
+    ///
     /// let config = Config::default()
     ///     .mode(OperationMode::NormalOperation)
     ///     .bitrate(CNF_500K_BPS)
-    ///     .receive_buffer_0(RXB0CTRL::default().with_rxm(RXM::ReceiveAny));
+    ///     .filters(&filters);
     /// mcp25xx.apply_config(&config).unwrap();
     /// ```
     pub fn apply_config(&mut self, config: &Config<'_>) -> Result<(), <Self as SpiWithCs>::Error> {
@@ -54,15 +120,26 @@ where
         self.write_register(config.canctrl)
     }
 
+    /// Set the controller to NormalOperation, Sleep, Loopback, ListenOnly or Configuration
     pub fn set_mode(&mut self, mode: OperationMode) -> Result<(), <Self as SpiWithCs>::Error> {
         let reg = CANCTRL::new().with_reqop(mode);
         self.modify_register(reg, 0b11100000)
     }
 
+    /// Set clock settings
+    ///
+    /// See [`bitrates`] for preconfigured settings for different oscillator frequencies.
+    ///
+    /// ## Note:
+    /// The controller needs to be in Configuration Mode for this
     pub fn set_bitrate(&mut self, cnf: CNF) -> Result<(), <Self as SpiWithCs>::Error> {
         self.write_registers(CNF3::ADDRESS, &cnf.into_bytes())
     }
-    /// Note: Requires Configuration mode
+
+    /// Set individual receive buffer filters or masks
+    ///
+    /// ## Note:
+    /// The controller needs to be in Configuration Mode for this
     ///
     /// ```
     /// # use mcp25xx::doctesthelper::get_mcp25xx;
@@ -90,6 +167,7 @@ where
         self.write_registers(filter as u8, &id.into_bytes())
     }
 
+    /// Read status flags
     pub fn read_status(&mut self) -> Result<ReadStatusResponse, <Self as SpiWithCs>::Error> {
         self.set_cs_low();
         self.spi_write(&[Instruction::ReadStatus as u8])?;
@@ -99,7 +177,7 @@ where
         Ok(ReadStatusResponse::from_bytes(buf))
     }
 
-    /// Resets internal registers to the default state, sets Configuration mode.
+    /// Reset internal registers to the default state. Sets Configuration mode.
     pub fn reset(&mut self) -> Result<(), <Self as SpiWithCs>::Error> {
         self.set_cs_low();
         self.spi_write(&[Instruction::Reset as u8])?;
@@ -107,7 +185,9 @@ where
         Ok(())
     }
 
+    /// Read receive buffer status flags
     #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+    #[cfg_attr(doc, doc(cfg(any(feature = "mcp2515", feature = "mcp25625"))))]
     pub fn rx_status(&mut self) -> Result<RxStatusResponse, <Self as SpiWithCs>::Error> {
         self.set_cs_low();
         self.spi_write(&[Instruction::RxStatus as u8])?;
@@ -142,8 +222,7 @@ where
             }
         }
 
-        let registers = &frame.as_bytes()[0..5 + frame.dlc()];
-        self.load_tx_buffer(buf_idx, registers)?;
+        self.load_tx_buffer(buf_idx, frame)?;
         self.request_to_send(buf_idx)?;
         Ok(None)
     }
@@ -167,6 +246,7 @@ impl<SPI, CS> MCP25xx<SPI, CS>
 where
     Self: SpiWithCs,
 {
+    /// Read a single register
     pub fn read_register<R: Register>(&mut self) -> Result<R, <Self as SpiWithCs>::Error> {
         self.set_cs_low();
         self.spi_write(&[Instruction::Read as u8, R::ADDRESS])?;
@@ -176,6 +256,7 @@ where
         Ok(reg[0].into())
     }
 
+    /// Write a single register
     pub fn write_register<R: Register + Into<u8>>(
         &mut self,
         reg: R,
@@ -186,6 +267,9 @@ where
         Ok(())
     }
 
+    /// Modify a single register
+    ///
+    /// Only registers implementing [`Modify`] support the `Modify` Instruction
     pub fn modify_register<R: Register + Modify + Into<u8>>(
         &mut self,
         reg: R,
@@ -197,6 +281,7 @@ where
         Ok(())
     }
 
+    /// Read multiple consecutive registers
     pub fn read_registers(
         &mut self,
         start_address: u8,
@@ -209,6 +294,7 @@ where
         Ok(())
     }
 
+    /// Write multiple consecutive registers
     pub fn write_registers(
         &mut self,
         start_address: u8,
@@ -221,6 +307,7 @@ where
         Ok(())
     }
 
+    /// Request the selected transmit buffer to send a CAN frame
     pub fn request_to_send(&mut self, buf_idx: TxBuffer) -> Result<(), <Self as SpiWithCs>::Error> {
         self.set_cs_low();
         self.spi_write(&[Instruction::Rts as u8 | (1 << buf_idx as u8)])?;
@@ -228,12 +315,15 @@ where
         Ok(())
     }
 
+    /// Setup the selected transmit buffer with CAN frame data
     #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
     pub fn load_tx_buffer(
         &mut self,
         buf_idx: TxBuffer,
-        data: &[u8],
+        frame: &CanFrame,
     ) -> Result<(), <Self as SpiWithCs>::Error> {
+        let data = &frame.as_bytes()[0..5 + frame.dlc()];
+
         self.set_cs_low();
         self.spi_write(&[Instruction::LoadTxBuffer as u8 | (buf_idx as u8 * 2)])?;
         self.spi_write(data)?;
@@ -241,16 +331,19 @@ where
         Ok(())
     }
 
+    /// Setup the selected transmit buffer with CAN frame data
     #[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
     #[inline]
     pub fn load_tx_buffer(
         &mut self,
         buf_idx: TxBuffer,
-        data: &[u8],
+        frame: &CanFrame,
     ) -> Result<(), <Self as SpiWithCs>::Error> {
+        let data = &frame.as_bytes()[0..5 + frame.dlc()];
         self.write_registers(0x31 + 0x10 * buf_idx as u8, data)
     }
 
+    /// Read CAN frame data from the selected receive buffer
     pub fn read_rx_buffer(
         &mut self,
         buf_idx: RxBuffer,
@@ -301,6 +394,7 @@ where
     }
 }
 
+/// Filters and Masks of the two receive buffers
 #[derive(Copy, Clone, Debug)]
 pub enum AcceptanceFilter {
     /// Associated with Receive Buffer 0
@@ -321,6 +415,7 @@ pub enum AcceptanceFilter {
     Mask1 = 0x24,
 }
 
+/// Transmit buffer
 #[derive(Copy, Clone, Debug)]
 pub enum TxBuffer {
     TXB0 = 0,
@@ -328,12 +423,14 @@ pub enum TxBuffer {
     TXB2 = 2,
 }
 
+/// Receive buffer
 #[derive(Copy, Clone, Debug)]
 pub enum RxBuffer {
     RXB0 = 0,
     RXB1 = 1,
 }
 
+/// Instruction supported by the CAN controller
 #[derive(Copy, Clone, Debug)]
 #[repr(u8)]
 pub enum Instruction {
@@ -357,10 +454,12 @@ pub enum Instruction {
     BitModify = 0b0000_0101,
 
     #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+    #[cfg_attr(doc, doc(cfg(any(feature = "mcp2515", feature = "mcp25625"))))]
     /// Quick polling command that indicates a filter match and message type
     /// (standard, extended and/or remote) of the received message.
     RxStatus = 0b1011_0000,
     #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+    #[cfg_attr(doc, doc(cfg(any(feature = "mcp2515", feature = "mcp25625"))))]
     /// When reading a receive buffer, reduces the overhead of a normal `Read`
     /// command by placing the Address Pointer at one of four locations, as
     /// indicated by ‘nm’ in `0b1001_0nm0`.
@@ -368,6 +467,7 @@ pub enum Instruction {
     /// Note: The associated RX flag bit (`rxNif` bits in the [`CANINTF`] register) will be cleared after bringing CS high.
     ReadRxBuffer = 0b1001_0000,
     #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+    #[cfg_attr(doc, doc(cfg(any(feature = "mcp2515", feature = "mcp25625"))))]
     /// When loading a transmit buffer, reduces the overhead of a normal `Write`
     /// command by placing the Address Pointer at one of six locations, as
     /// indicated by ‘abc’ in `0b0100_0abc`.

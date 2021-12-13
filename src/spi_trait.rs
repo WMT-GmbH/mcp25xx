@@ -6,6 +6,7 @@ use embedded_hal::digital::v2::OutputPin;
 
 use crate::MCP25xx;
 
+/// Convenience trait, reducing the amount of where bounds for generic code
 pub trait SpiWithCs {
     type Error: Debug;
     fn set_cs_high(&mut self);

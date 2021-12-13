@@ -3,6 +3,7 @@
 // cnf3.wakfil = false
 // cnf2.sam = ?
 
+/// Preconfigured CNF registers for 8 Mhz oscillators
 pub mod clock_8mhz {
     use crate::registers::CNF;
 
@@ -21,6 +22,8 @@ pub mod clock_8mhz {
     pub const CNF_10K_BPS: CNF = CNF::from_bytes([0x87, 0xBF, 0x0F]);
     pub const CNF_5K_BPS: CNF = CNF::from_bytes([0x87, 0xBF, 0x1F]);
 }
+
+/// Preconfigured CNF registers for 16 Mhz oscillators
 pub mod clock_16mhz {
     use crate::registers::CNF;
 
@@ -39,6 +42,8 @@ pub mod clock_16mhz {
     pub const CNF_10K_BPS: CNF = CNF::from_bytes([0x87, 0xFF, 0x1F]);
     pub const CNF_5K_BPS: CNF = CNF::from_bytes([0x87, 0xFF, 0x3F]);
 }
+
+/// Preconfigured CNF registers for 20 Mhz oscillators
 pub mod clock_20mhz {
     use crate::registers::CNF;
 

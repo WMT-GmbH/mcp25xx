@@ -91,6 +91,7 @@ pub struct CANCTRL {
     pub clkpre: CLKPRE,
     ///  CLKOUT Pin Enable
     pub clken: bool,
+    #[cfg_attr(doc, doc(cfg(any(feature = "mcp2515", feature = "mcp25625"))))]
     /// One-Shot Mode
     pub osm: bool,
     /// Abort All Pending Transmissions
@@ -156,6 +157,7 @@ impl Default for CANCTRL {
     }
 }
 
+/// TODO docs
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
@@ -251,6 +253,7 @@ pub struct CNF3 {
     __: B3,
     /// Wake-up Filter
     pub wakfil: bool,
+    #[cfg_attr(doc, doc(cfg(any(feature = "mcp2515", feature = "mcp25625"))))]
     /// Start-of-Frame Signal
     pub sof: bool,
 }
@@ -507,6 +510,7 @@ pub struct ReadStatusResponse {
 
 /// Read Status Response Bitfield
 #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+#[cfg_attr(doc, doc(cfg(any(feature = "mcp2515", feature = "mcp25625"))))]
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Default)]
@@ -524,6 +528,7 @@ pub struct RxStatusResponse {
 
 /// The filter that matched the received message
 #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
+#[cfg_attr(doc, doc(cfg(any(feature = "mcp2515", feature = "mcp25625"))))]
 #[derive(BitfieldSpecifier, Copy, Clone, Debug)]
 #[bits = 3]
 pub enum FilterMatch {

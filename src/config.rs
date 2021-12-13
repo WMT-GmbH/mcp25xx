@@ -1,6 +1,12 @@
 use crate::registers::{OperationMode, CANCTRL, CNF, RXB0CTRL, RXB1CTRL};
 use crate::{AcceptanceFilter, IdHeader};
 
+/// Configuration for:
+/// * Clock settings
+/// * Operation Mode
+/// * Receive buffers
+/// * Receive buffer filters and masks
+/// * Other flags inside the CANCTRL, CNF, RXB0CTRL, RXB1CTRL registers
 #[derive(Clone, Debug, Default)]
 pub struct Config<'a> {
     pub canctrl: CANCTRL,

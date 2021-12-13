@@ -15,3 +15,6 @@ mcp25625 = []
 
 [dev-dependencies]
 embedded-hal-mock = "0.8.0"
+
+[package.metadata.docs.rs]
+all-features = true

@@ -5,6 +5,7 @@ use embedded_can::{Frame, Id};
 use crate::registers::DLC;
 use crate::IdHeader;
 
+/// CAN frame with the same in memory representation as the registers of the CAN controller
 #[derive(Clone, Default)]
 #[repr(C)]
 pub struct CanFrame {
@@ -14,21 +15,10 @@ pub struct CanFrame {
 }
 
 impl CanFrame {
-    pub fn as_bytes(&self) -> &[u8; 13] {
+    pub(crate) fn as_bytes(&self) -> &[u8; 13] {
         // SAFETY:
         // Frame is [repr(C)] without any padding bytes
         unsafe { &*(self as *const CanFrame as *const [u8; core::mem::size_of::<CanFrame>()]) }
-    }
-
-    pub fn from_bytes(bytes: [u8; 13]) -> CanFrame {
-        // SAFETY:
-        // Frame is [repr(C)] without any padding bytes
-        // Also, there are no invariants that the bytes that compose Frame must uphold
-        let mut frame: CanFrame = unsafe { core::mem::transmute(bytes) };
-        if frame.dlc.dlc() > 8 {
-            frame.dlc.set_dlc(8);
-        }
-        frame
     }
 }
 
