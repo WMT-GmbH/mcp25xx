@@ -2,6 +2,9 @@
 //!
 //! API is implemented in terms of of the [`embedded_hal`] and [`embedded_can`] traits.
 //!
+//! Activating the `mcp2515` or `mcp25625` feature will enable
+//! additional registers and instructions the MCP2510 does not support.
+//!
 //! # Example
 //!
 //! ```
@@ -41,7 +44,6 @@
 
 #![no_std]
 #![cfg_attr(doc, feature(doc_cfg))]
-
 use core::fmt::Debug;
 
 pub use embedded_can;
@@ -68,7 +70,7 @@ mod spi_trait;
 ///
 /// ## Note about MCP2515 and MCP25625
 /// These chip revisions offer more efficient commands which the MCP2510 does not support.
-/// You can opt in into these by activating the `mcp2515` or `mcp25625` feature of this crate.
+/// You can opt in to using these by activating the `mcp2515` or `mcp25625` feature of this crate.
 pub struct MCP25xx<SPI, CS> {
     pub spi: SPI,
     pub cs: CS,
@@ -418,15 +420,20 @@ pub enum AcceptanceFilter {
 /// Transmit buffer
 #[derive(Copy, Clone, Debug)]
 pub enum TxBuffer {
+    /// Transmit buffer 0
     TXB0 = 0,
+    /// Transmit buffer 1
     TXB1 = 1,
+    /// Transmit buffer 2
     TXB2 = 2,
 }
 
 /// Receive buffer
 #[derive(Copy, Clone, Debug)]
 pub enum RxBuffer {
+    /// Receive Buffer 0
     RXB0 = 0,
+    /// Receive Buffer 1
     RXB1 = 1,
 }
 

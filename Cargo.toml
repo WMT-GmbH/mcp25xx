@@ -1,13 +1,28 @@
 [package]
 name = "mcp25xx"
+description = "MCP2510, MCP2515 and MCP25625 CAN controller library"
 version = "0.1.0"
 edition = "2021"
+repository = "https://github.com/WMT-GmbH/mcp25xx"
+license = "MIT OR Apache-2.0"
+categories = [
+    "hardware-support",
+    "no-std",
+    "embedded"
+]
+keywords = [
+    "embedded-hal",
+    "CAN",
+    "MCP2510",
+    "MCP2515",
+    "MCP25625",
+]
 
 [dependencies]
 embedded-hal = "0.2.6"
 embedded-can = "0.3.0"
 nb = "1.0.0"
-modular-bitfield = { git = "https://github.com/dimpolo/modular-bitfield.git"}
+modular-bitfield = "0.11.2"
 
 [features]
 mcp2515 = []

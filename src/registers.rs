@@ -1,3 +1,5 @@
+#![allow(clippy::identity_op)] // FIXME https://github.com/Robbepop/modular-bitfield/issues/62
+
 use modular_bitfield::prelude::*;
 
 /// 8 bit Register
@@ -157,19 +159,35 @@ impl Default for CANCTRL {
     }
 }
 
-/// TODO docs
+/// CAN Status Register
+///
+/// Note: Read only
 #[bitfield]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
 pub struct CANSTAT {
     #[skip]
     __: B1,
-    /// Interrupt Flag Code TODO
-    pub icod: B3,
+    /// Interrupt Flag Code
+    pub icod: InterruptFlagCode,
     #[skip]
     __: B1,
     /// Operation Mode
     pub opmod: OperationMode,
+}
+
+/// Interrupt Flag Code
+#[derive(BitfieldSpecifier, Copy, Clone, Debug)]
+#[bits = 3]
+pub enum InterruptFlagCode {
+    NoInterrupt = 0b000,
+    ErrorInterrupt = 0b001,
+    WakeUpInterrupt = 0b010,
+    TXB0Interrupt = 0b011,
+    TXB1Interrupt = 0b100,
+    TXB2Interrupt = 0b101,
+    RXB0Interrupt = 0b110,
+    RXB1Interrupt = 0b111,
 }
 
 impl Default for CANSTAT {
