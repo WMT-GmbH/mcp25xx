@@ -14,15 +14,15 @@ additional registers and instructions the MCP2510 does not support.
 ## Example
 
 ```rust
-use embedded_can::blocking::Can as _;
-use embedded_can::{Can, Frame, StandardId};
+use embedded_can::nb::Can;
+use embedded_can::{Frame, StandardId};
 use mcp25xx::bitrates::clock_16mhz::CNF_500K_BPS;
 use mcp25xx::registers::{OperationMode, RXB0CTRL, RXM};
 use mcp25xx::{CanFrame, Config, MCP25xx};
 
-// spi, cs and timer are structs implementing their respective embedded_hal traits.
+// spi is a struct implementing embedded_hal::spi::SpiDevice.
 
-let mut mcp25xx = MCP25xx { spi, cs };
+let mut mcp25xx = MCP25xx { spi };
 
 let config = Config::default()
     .mode(OperationMode::NormalOperation)
@@ -35,7 +35,7 @@ mcp25xx.apply_config(&config).unwrap();
 let can_id = StandardId::new(123).unwrap();
 let data = [1, 2, 3, 4, 5, 6, 7, 8];
 let frame = CanFrame::new(can_id, &data).unwrap();
-mcp25xx.try_write(&frame).unwrap();
+mcp25xx.transmit(&frame).unwrap();
 
 // Receive a frame
 if let Ok(frame) = mcp25xx.try_receive() {

@@ -1,7 +1,7 @@
 [package]
 name = "mcp25xx"
 description = "MCP2510, MCP2515 and MCP25625 CAN controller library"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 repository = "https://github.com/WMT-GmbH/mcp25xx"
 license = "MIT OR Apache-2.0"
@@ -19,9 +19,9 @@ keywords = [
 ]
 
 [dependencies]
-embedded-hal = "0.2.6"
-embedded-can = "0.3.0"
-nb = "1.0.0"
+embedded-hal = "1.0.0"
+embedded-can = "0.4.1"
+nb = "1.1.0"
 modular-bitfield = "0.11.2"
 
 [features]
@@ -29,7 +29,7 @@ mcp2515 = []
 mcp25625 = []
 
 [dev-dependencies]
-embedded-hal-mock = "0.8.0"
+embedded-hal-mock = "0.11.1"
 
 [package.metadata.docs.rs]
 all-features = true
