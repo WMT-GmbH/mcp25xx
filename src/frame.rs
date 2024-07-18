@@ -20,12 +20,23 @@ impl CanFrame {
         // Frame is [repr(C)] without any padding bytes
         unsafe { &*(self as *const CanFrame as *const [u8; core::mem::size_of::<CanFrame>()]) }
     }
+
+    pub(crate) fn from_bytes(bytes: [u8; 13]) -> Self {
+        // SAFETY:
+        // Frame is [repr(C)] without any padding bytes
+        // All bit patterns are valid
+        let mut frame: CanFrame = unsafe { core::mem::transmute(bytes) };
+        if frame.dlc.dlc() > 8 {
+            frame.dlc.set_dlc(8);
+        }
+        frame
+    }
 }
 
 impl Frame for CanFrame {
-    fn new(id: impl Into<Id>, data: &[u8]) -> Result<Self, ()> {
+    fn new(id: impl Into<Id>, data: &[u8]) -> Option<Self> {
         if data.len() > 8 {
-            return Err(());
+            return None;
         }
 
         let mut frame = CanFrame {
@@ -36,14 +47,14 @@ impl Frame for CanFrame {
 
         frame.data[..data.len()].copy_from_slice(data);
 
-        Ok(frame)
+        Some(frame)
     }
 
-    fn new_remote(id: impl Into<Id>, dlc: usize) -> Result<Self, ()> {
+    fn new_remote(id: impl Into<Id>, dlc: usize) -> Option<Self> {
         if dlc > 8 {
-            return Err(());
+            return None;
         }
-        Ok(CanFrame {
+        Some(CanFrame {
             id_header: IdHeader::from(id.into()),
             dlc: DLC::new().with_dlc(dlc as u8).with_rtr(true),
             data: [0; 8],
