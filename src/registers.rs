@@ -1,5 +1,3 @@
-#![allow(clippy::identity_op)] // FIXME https://github.com/Robbepop/modular-bitfield/issues/62
-
 use modular_bitfield::prelude::*;
 
 /// 8 bit Register
@@ -57,7 +55,7 @@ pub struct RXB1CTRL {
 
 /// Receive Buffer Operating Mode
 #[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
-#[derive(BitfieldSpecifier, Copy, Clone, Debug)]
+#[derive(Specifier, Copy, Clone, Debug)]
 #[bits = 2]
 pub enum RXM {
     /// Receive all valid messages using either standard or extended identifiers that meet filter criteria
@@ -121,7 +119,7 @@ pub struct CANCTRL {
 }
 
 /// Request Operation mode
-#[derive(BitfieldSpecifier, Copy, Clone, Debug)]
+#[derive(Specifier, Copy, Clone, Debug)]
 #[bits = 3]
 pub enum OperationMode {
     NormalOperation = 0b000,
@@ -135,7 +133,7 @@ pub enum OperationMode {
 }
 
 /// CLKOUT Pin Prescaler
-#[derive(BitfieldSpecifier, Copy, Clone, Debug)]
+#[derive(Specifier, Copy, Clone, Debug)]
 #[bits = 2]
 pub enum CLKPRE {
     SystemClockDiv1 = 0b000,
@@ -177,7 +175,7 @@ pub struct CANSTAT {
 }
 
 /// Interrupt Flag Code
-#[derive(BitfieldSpecifier, Copy, Clone, Debug)]
+#[derive(Specifier, Copy, Clone, Debug)]
 #[bits = 3]
 pub enum InterruptFlagCode {
     NoInterrupt = 0b000,
