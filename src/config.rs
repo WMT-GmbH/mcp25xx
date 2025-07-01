@@ -1,4 +1,4 @@
-use crate::registers::{OperationMode, CANCTRL, CNF, RXB0CTRL, RXB1CTRL};
+use crate::registers::{CANCTRL, CNF, OperationMode, RXB0CTRL, RXB1CTRL};
 use crate::{AcceptanceFilter, IdHeader};
 
 /// Configuration for:

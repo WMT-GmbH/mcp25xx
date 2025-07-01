@@ -2,7 +2,7 @@
 name = "mcp25xx"
 description = "MCP2510, MCP2515 and MCP25625 CAN controller library"
 version = "0.2.0"
-edition = "2021"
+edition = "2024"
 repository = "https://github.com/WMT-GmbH/mcp25xx"
 license = "MIT OR Apache-2.0"
 categories = [

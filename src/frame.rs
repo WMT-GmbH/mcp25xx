@@ -2,8 +2,8 @@ use core::fmt::Debug;
 
 use embedded_can::{Frame, Id};
 
-use crate::registers::DLC;
 use crate::IdHeader;
+use crate::registers::DLC;
 
 /// CAN frame with the same in memory representation as the registers of the CAN controller
 #[derive(Clone, Default)]
