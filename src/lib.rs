@@ -241,7 +241,7 @@ impl<SPI: SpiDevice> embedded_can::blocking::Can for MCP25xx<SPI> {
     fn transmit(&mut self, frame: &Self::Frame) -> Result<(), Self::Error> {
         let mut replaced_frame;
         let mut frame_to_transmit = frame;
-        while let Some(f) = nb::block!(embedded_can::nb::Can::transmit(self, &frame_to_transmit))? {
+        while let Some(f) = nb::block!(embedded_can::nb::Can::transmit(self, frame_to_transmit))? {
             replaced_frame = f;
             frame_to_transmit = &replaced_frame;
         }
