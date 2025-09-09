@@ -68,7 +68,7 @@ mod idheader;
 /// ## Note about MCP2515 and MCP25625
 /// These chip revisions offer more efficient commands which the MCP2510 does not support.
 /// You can opt in to using these by activating the `mcp2515` or `mcp25625` feature of this crate.
-pub struct MCP25xx<SPI> {
+pub struct MCP25xx<SPI: SpiDevice> {
     pub spi: SPI,
 }
 
