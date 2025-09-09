@@ -1,3 +1,5 @@
+#![allow(unused_parens)] // FIXME: remove after https://github.com/modular-bitfield/modular-bitfield/pull/125
+
 use modular_bitfield::prelude::*;
 
 /// 8 bit Register
