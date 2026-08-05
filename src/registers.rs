@@ -72,7 +72,7 @@ pub enum RXM {
 
 /// Receive Buffer Operating Mode
 #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
-#[derive(BitfieldSpecifier, Copy, Clone, Debug)]
+#[derive(Specifier, Copy, Clone, Debug)]
 #[bits = 2]
 pub enum RXM {
     /// Receive all valid messages using either standard or extended identifiers that meet filter criteria
@@ -547,7 +547,7 @@ pub struct RxStatusResponse {
 /// The filter that matched the received message
 #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
 #[cfg_attr(doc, doc(cfg(any(feature = "mcp2515", feature = "mcp25625"))))]
-#[derive(BitfieldSpecifier, Copy, Clone, Debug)]
+#[derive(Specifier, Copy, Clone, Debug)]
 #[bits = 3]
 pub enum FilterMatch {
     RXF0,
