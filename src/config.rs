@@ -1,4 +1,4 @@
-use crate::registers::{CANCTRL, CNF, OperationMode, RXB0CTRL, RXB1CTRL};
+use crate::registers::{CANCTRL, CANINTE, CNF, OperationMode, RXB0CTRL, RXB1CTRL};
 use crate::{AcceptanceFilter, IdHeader};
 
 /// Configuration for:
@@ -6,13 +6,23 @@ use crate::{AcceptanceFilter, IdHeader};
 /// * Operation Mode
 /// * Receive buffers
 /// * Receive buffer filters and masks
+/// * Interrupt enables
 /// * Other flags inside the CANCTRL, CNF, RXB0CTRL, RXB1CTRL registers
+///
+/// `caninte` defaults to all-zero, matching the register's post-reset
+/// value, so existing callers see no behavior change unless they opt in
+/// via [`interrupts`](Config::interrupts). Callers that read incoming
+/// frames through an interrupt pin (rather than polling `read_status`)
+/// need to set at least `rx0ie`/`rx1ie` here — without it, `CANINTE` stays
+/// at its post-reset default (every interrupt source disabled) and the
+/// physical INT pin never asserts for a new message.
 #[derive(Clone, Debug, Default)]
 pub struct Config<'a> {
     pub canctrl: CANCTRL,
     pub cnf: CNF,
     pub rxb0ctrl: RXB0CTRL,
     pub rxb1ctrl: RXB1CTRL,
+    pub caninte: CANINTE,
     pub filters: &'a [(AcceptanceFilter, IdHeader)],
 }
 
@@ -45,6 +55,11 @@ impl<'a> Config<'a> {
     #[inline]
     pub fn filters(mut self, filters: &'a [(AcceptanceFilter, IdHeader)]) -> Self {
         self.filters = filters;
+        self
+    }
+    #[inline]
+    pub fn interrupts(mut self, caninte: CANINTE) -> Self {
+        self.caninte = caninte;
         self
     }
 }

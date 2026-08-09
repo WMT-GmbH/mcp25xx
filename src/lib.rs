@@ -109,6 +109,13 @@ impl<SPI: SpiDevice> MCP25xx<SPI> {
         self.set_bitrate(config.cnf)?;
         self.write_register(config.rxb0ctrl)?;
         self.write_register(config.rxb1ctrl)?;
+        // CANINTE resets to all-zero (every interrupt source disabled), so
+        // without this write the physical INT pin never asserts for a new
+        // message, no matter how the receive buffers or filters are set
+        // up. Written here, before the CANCTRL write below switches out of
+        // Configuration mode (other register writes are only valid in
+        // Configuration mode).
+        self.write_register(config.caninte)?;
         for &(filter, id_header) in config.filters {
             self.set_filter(filter, id_header)?;
         }
@@ -332,13 +339,20 @@ impl<SPI: SpiDevice> MCP25xx<SPI> {
     }
 
     /// Read CAN frame data from the selected receive buffer
+    ///
+    /// Always explicitly clears the buffer's `CANINTF` flag, rather than
+    /// only doing so when the fast `ReadRxBuffer` instruction is
+    /// unavailable. That instruction is documented to clear the flag
+    /// itself once CS goes high, but relying on that alone was found on
+    /// real MCP25625 hardware to leave the buffer stuck "full": the first
+    /// frame after a reset reads back correctly, but every frame after
+    /// that is silently lost, because the buffer never actually frees up
+    /// for reuse. Explicitly clearing the flag here fixes that.
     pub fn read_rx_buffer(&mut self, buf_idx: RxBuffer) -> Result<CanFrame, SPI::Error> {
         let mut bytes = [0; 13];
         self.read_rx(buf_idx, &mut bytes)?;
         let frame = CanFrame::from_bytes(bytes);
 
-        #[cfg(not(any(feature = "mcp2515", feature = "mcp25625")))]
-        // need to manually reset the interrupt flag bit if Instruction::ReadRxBuffer is not available
         self.modify_register(CANINTF::new(), 1 << buf_idx as u8)?;
         Ok(frame)
     }
@@ -346,7 +360,7 @@ impl<SPI: SpiDevice> MCP25xx<SPI> {
     #[cfg(any(feature = "mcp2515", feature = "mcp25625"))]
     fn read_rx(&mut self, buf_idx: RxBuffer, bytes: &mut [u8; 13]) -> Result<(), SPI::Error> {
         self.spi.transaction(&mut [
-            Operation::Write(&[Instruction::ReadRxBuffer as u8 | (buf_idx as u8 * 2)]),
+            Operation::Write(&[Instruction::ReadRxBuffer as u8 | ((buf_idx as u8) << 2)]),
             Operation::Read(bytes),
         ])
     }
